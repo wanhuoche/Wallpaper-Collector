@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>壁纸收集器 · 多图源</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🖼</text></svg>">
+    <link rel="stylesheet" href="style.css">
+    <script src="js/theme.js"></script>
+</head>
+<body>
+
+    <!-- 导航栏 -->
+    <nav class="navbar">
+        <div class="navbar-brand">
+            <div class="icon">🖼</div>
+            <span>壁纸收集器</span>
+        </div>
+        <div class="navbar-actions">
+            <button class="btn-theme" id="btnTheme" title="切换深色/浅色模式">🌙</button>
+            <button class="btn-settings" id="btnSettings" title="设置 (Ctrl+,)">⚙</button>
+        </div>
+    </nav>
+
+    <!-- 搜索区域 -->
+    <section class="search-section">
+        <div class="search-card">
+            <div class="search-row">
+                <div class="search-input-wrapper">
+                    <span class="search-icon">🔍</span>
+                    <input
+                        type="text"
+                        class="search-input"
+                        id="searchInput"
+                        placeholder="输入关键词，如：风景、赛博朋克、星空..."
+                        autocomplete="off"
+                    />
+                    <button class="search-clear" id="searchClear" title="清除">✕</button>
+                    <div class="search-history" id="searchHistory" style="display:none;"></div>
+                </div>
+                <button class="btn-search" id="btnSearch">搜 索</button>
+            </div>
+
+            <!-- 比例标签 -->
+            <div class="filter-label">比例</div>
+            <div class="ratio-tags" id="ratioTags">
+                <span class="ratio-tag active" data-ratio="all">全部</span>
+                <span class="ratio-tag" data-ratio="16:9">16:9 宽屏</span>
+                <span class="ratio-tag" data-ratio="4:3">4:3</span>
+                <span class="ratio-tag" data-ratio="1:1">1:1 方形</span>
+                <span class="ratio-tag" data-ratio="3:2">3:2 摄影</span>
+                <span class="ratio-tag" data-ratio="21:9">21:9 超宽</span>
+                <span class="ratio-tag" data-ratio="9:16">9:16 竖屏</span>
+                <span class="ratio-tag" data-ratio="16:10">16:10</span>
+            </div>
+
+            <!-- 清晰度标签 -->
+            <div class="filter-label">清晰度</div>
+            <div class="quality-tags" id="qualityTags">
+                <span class="quality-tag active" data-quality="all">全部清晰度</span>
+                <span class="quality-tag" data-quality="2560x1600">2.5K (2560×1600)</span>
+                <span class="quality-tag" data-quality="1920x1080">1080p (1920×1080)</span>
+                <span class="quality-tag" data-quality="4k">4K (≥3840)</span>
+            </div>
+
+            <!-- 内容分级标签 -->
+            <div class="filter-label">内容分级</div>
+            <div class="purity-tags" id="purityTags">
+                <span class="purity-tag active" data-purity="safe">安全 (SFW + Sketchy)</span>
+                <span class="purity-tag" data-purity="all">全部 (含 NSFW)</span>
+            </div>
+
+            <!-- 当前图源指示 -->
+            <div class="source-indicator">
+                <span class="source-dot"></span>
+                <span class="source-label">当前图源：<strong id="sourceName">未配置</strong></span>
+            </div>
+        </div>
+    </section>
+
+    <!-- 结果区域 -->
+    <section class="results-section" id="resultsSection">
+        <div class="results-header">
+            <div class="results-tabs">
+                <button class="results-tab active" data-tab="search">搜索结果</button>
+                <button class="results-tab" data-tab="favorites">收藏夹 <span class="fav-count-badge" id="favCount">0</span></button>
+            </div>
+            <span class="results-count" id="resultsCount">请先设置 API 密钥并选择图源</span>
+        </div>
+        <div class="results-grid" id="resultsGrid"></div>
+        <div class="scroll-sentinel" id="scrollSentinel"></div>
+        <div class="load-more-wrap" id="loadMoreWrap" style="display:none;">
+            <button class="btn-load-more" id="btnLoadMore">加载更多</button>
+        </div>
+    </section>
+
+    <!-- 预览弹窗 -->
+    <div class="modal-overlay" id="modalOverlay" style="display:none;">
+        <div class="modal-content" id="modalContent">
+            <button class="modal-close" id="modalClose">✕</button>
+            <div class="modal-img-wrap" id="modalImgWrap">
+                <button class="modal-nav modal-nav-prev" id="modalPrev" title="上一张 (←)">‹</button>
+                <img id="modalImg" src="" alt="预览" />
+                <button class="modal-nav modal-nav-next" id="modalNext" title="下一张 (→)">›</button>
+                <div class="zoom-controls" id="zoomControls">
+                    <button class="btn-zoom" id="btnZoomOut" title="缩小 (滚轮)">−</button>
+                    <span class="zoom-level" id="zoomLevel">100%</span>
+                    <button class="btn-zoom" id="btnZoomIn" title="放大 (滚轮)">+</button>
+                    <button class="btn-zoom" id="btnZoomReset" title="重置缩放 (双击)">↺</button>
+                </div>
+            </div>
+            <div class="modal-info">
+                <span class="info-text" id="modalInfo">--</span>
+                <div class="modal-actions">
+                    <button class="modal-fav" id="modalFav" title="收藏">♡</button>
+                    <button class="btn-view-original" id="btnViewOriginal">查看原图</button>
+                    <button class="btn-download-big" id="modalDownload">⬇ 下载原图</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 回到顶部 -->
+    <button class="btn-back-top" id="btnBackTop" title="回到顶部">↑</button>
+
+    <!-- Toast -->
+    <div class="toast" id="toast"></div>
+
+    <!-- 设置面板遮罩 -->
+    <div class="settings-backdrop" id="settingsBackdrop"></div>
+
+    <!-- 设置面板 -->
+    <div class="settings-panel" id="settingsPanel">
+        <div class="settings-header">
+            <h2>⚙ 设置</h2>
+            <button class="btn-close-settings" id="btnCloseSettings">✕</button>
+        </div>
+
+        <div class="setting-group">
+            <label>图源选择</label>
+            <select id="settingSource">
+                <option value="wallhaven">Wallhaven（动漫/二次元）</option>
+                <option value="pixabay">Pixabay（风景/摄影）</option>
+                <option value="unsplash">Unsplash（艺术/插画）</option>
+            </select>
+            <span class="setting-hint">切换图源后请确保已填写对应的 API Key</span>
+        </div>
+
+        <div class="setting-group" id="wallhavenKeyGroup">
+            <label>Wallhaven API Key</label>
+            <input type="text" id="settingApiKeyWallhaven" placeholder="输入 Wallhaven API Key" />
+            <span class="setting-hint">
+                免费获取：<a href="https://wallhaven.cc/settings/account" target="_blank">wallhaven.cc/settings/account</a>
+            </span>
+        </div>
+
+        <div class="setting-group" id="pixabayKeyGroup" style="display:none;">
+            <label>Pixabay API Key</label>
+            <input type="text" id="settingApiKeyPixabay" placeholder="输入 Pixabay API Key" />
+            <span class="setting-hint">
+                免费获取：<a href="https://pixabay.com/api/docs/" target="_blank">pixabay.com/api/docs</a>
+            </span>
+        </div>
+
+        <div class="setting-group" id="unsplashKeyGroup" style="display:none;">
+            <label>Unsplash Access Key</label>
+            <input type="text" id="settingApiKeyUnsplash" placeholder="输入 Unsplash Access Key" />
+            <span class="setting-hint">
+                免费获取：<a href="https://unsplash.com/developers" target="_blank">unsplash.com/developers</a>（创建应用即得）
+            </span>
+        </div>
+
+        <div class="setting-group">
+            <label>每页图片数</label>
+            <select id="settingPerPage">
+                <option value="15">15 张</option>
+                <option value="30" selected>30 张</option>
+                <option value="60">60 张</option>
+            </select>
+        </div>
+
+        <div class="setting-group">
+            <label>比例筛选容差</label>
+            <select id="settingRatioTolerance">
+                <option value="0.05">严格 (±5%)</option>
+                <option value="0.10" selected>标准 (±10%)</option>
+                <option value="0.18">宽松 (±18%)</option>
+                <option value="0.30">非常宽松 (±30%)</option>
+            </select>
+            <span class="setting-hint">容差越大，通过比例筛选的图片越多</span>
+        </div>
+
+        <div class="setting-group">
+            <label>数据存储</label>
+            <div class="storage-status" id="storageStatus">
+                <span class="storage-dot"></span>
+                <span class="storage-text">正在检查...</span>
+            </div>
+            <div class="storage-row">
+                <button class="btn-storage" id="btnAutoSync">📁 选择存储目录</button>
+                <button class="btn-storage" id="btnExport">📥 导出</button>
+                <button class="btn-storage" id="btnImport">📤 导入</button>
+            </div>
+            <span class="setting-hint">选择目录后重启自动恢复 · Chrome / Edge 支持。导出/导入为全浏览器兜底方案。</span>
+        </div>
+
+        <button class="btn-save-settings" id="btnSaveSettings">保存设置</button>
+    </div>
+
+    <script src="js/source-config.js"></script>
+    <script src="js/search.js"></script>
+    <script src="js/storage.js"></script>
+    <script src="js/app.js"></script>
+    <script src="js/favorites.js"></script>
+</body>
+</html>
