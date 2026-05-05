@@ -561,10 +561,26 @@
 
                 if (!resp.ok) {
                     var errData = await resp.json().catch(function() { return {}; });
-                    var errMsg = errData.error || '请求失败 (' + resp.status + ')';
                     if (resp.status === 429) {
-                        errMsg = errData.error || '今日搜索次数已用完，请填写自己的 API Key 或明天再试';
+                        // 次数用完 — 显示醒目的引导 UI
+                        var isLoggedIn = !!(W.state.user);
+                        var ctaHtml = '<div style="grid-column:1/-1;text-align:center;padding:50px 20px;">'
+                            + '<div style="font-size:48px;margin-bottom:16px;">⏰</div>'
+                            + '<h3 style="font-weight:600;margin-bottom:8px;color:var(--text);">今日搜索次数已用完</h3>'
+                            + '<p style="color:#86868b;font-size:14px;margin-bottom:20px;">' + (errData.error || '请明天再试') + '</p>';
+                        if (!isLoggedIn) {
+                            ctaHtml += '<a href="login.html" style="display:inline-block;padding:10px 24px;background:var(--accent);color:#fff;border-radius:20px;text-decoration:none;font-weight:600;margin-right:8px;">登录（提升至 40 次/天）</a>';
+                        }
+                        ctaHtml += '<button onclick="document.getElementById(\'btnSettings\').click()" style="display:inline-block;padding:10px 24px;background:#fff;color:var(--accent);border:1.5px solid var(--accent);border-radius:20px;cursor:pointer;font-weight:600;font-family:inherit;font-size:13px;">填写自己的 API Key（无限制）</button>'
+                            + '</div>';
+                        W.dom.resultsGrid.innerHTML = ctaHtml;
+                        W.dom.resultsCount.textContent = '今日次数已用完 · 明天自动重置';
+                        W.dom.loadMoreWrap.style.display = 'none';
+                        W.state.isLoading = false;
+                        W.dom.btnSearch.disabled = false;
+                        return;
                     }
+                    var errMsg = errData.error || '请求失败 (' + resp.status + ')';
                     throw new Error(errMsg);
                 }
 
