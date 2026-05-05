@@ -202,6 +202,83 @@ async function handlePassword(request, env) {
   return json({ message: '密码已更新' });
 }
 
+// ── 收藏夹 ──
+
+async function handleGetFavorites(request, env) {
+  const token = extractToken(request);
+  if (!token) return json({ error: '请先登录' }, 401);
+  let userId;
+  try { userId = await verifyToken(token); }
+  catch { return json({ error: '登录已过期' }, 401); }
+
+  const rows = await env.DB.prepare(
+    'SELECT photo_data, created_at FROM favorites WHERE user_id = ? ORDER BY created_at DESC'
+  ).bind(userId).all();
+
+  const list = rows.results.map(r => JSON.parse(r.photo_data));
+  return json({ favorites: list });
+}
+
+async function handleSyncFavorites(request, env) {
+  const token = extractToken(request);
+  if (!token) return json({ error: '请先登录' }, 401);
+  let userId;
+  try { userId = await verifyToken(token); }
+  catch { return json({ error: '登录已过期' }, 401); }
+
+  const body = await request.json();
+  const localFavs = body.favorites || [];
+
+  // 拉取云端数据
+  const rows = await env.DB.prepare(
+    'SELECT photo_id, photo_data, created_at FROM favorites WHERE user_id = ?'
+  ).bind(userId).all();
+  const cloudMap = {};
+  rows.results.forEach(r => { cloudMap[r.photo_id] = r; });
+
+  // 双向按 savedAt 合并
+  const merged = {};
+  // 先放云端的
+  Object.entries(cloudMap).forEach(([photoId, row]) => {
+    const data = JSON.parse(row.photo_data);
+    merged[photoId] = { ...data, savedAt: data.savedAt || 0, _from: 'cloud' };
+  });
+  // 再放本地的（savedAt 更新的覆盖旧的）
+  localFavs.forEach(fav => {
+    const photoId = fav.full || fav.medium || fav.thumb; // URL 作为唯一键
+    const cloud = merged[photoId];
+    if (!cloud || (fav.savedAt || 0) > (cloud.savedAt || 0)) {
+      merged[photoId] = { ...fav, _from: 'local' };
+    }
+  });
+
+  // 写入/更新数据库
+  const upsert = env.DB.prepare(
+    'INSERT OR REPLACE INTO favorites (user_id, photo_id, photo_data, created_at) VALUES (?, ?, ?, datetime(?))'
+  );
+  const batch = [];
+  Object.entries(merged).forEach(([photoId, fav]) => {
+    const data = { ...fav };
+    delete data._from;
+    batch.push(upsert.bind(userId, photoId, JSON.stringify(data), fav.savedAt ? new Date(fav.savedAt).toISOString() : new Date().toISOString()));
+  });
+
+  // D1 batch 最多 100 条
+  for (let i = 0; i < batch.length; i += 50) {
+    const chunk = batch.slice(i, i + 50);
+    await env.DB.batch(chunk);
+  }
+
+  // 返回合并后的列表
+  const resultList = Object.values(merged).map(fav => {
+    const clean = { ...fav };
+    delete clean._from;
+    return clean;
+  });
+
+  return json({ favorites: resultList });
+}
+
 // ── 路由表 ──
 
 const ROUTES = {
@@ -209,6 +286,8 @@ const ROUTES = {
   'POST /login':    handleLogin,
   'GET /me':        handleMe,
   'PUT /password':  handlePassword,
+  'GET /favorites': handleGetFavorites,
+  'POST /favorites/sync': handleSyncFavorites,
 };
 
 // ── 入口 ──

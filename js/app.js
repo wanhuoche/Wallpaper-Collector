@@ -427,6 +427,11 @@
         }
         W.auth.updateNavUser();
 
+        // 登录后同步收藏夹
+        if (user) {
+            W.favorites.syncWithCloud();
+        }
+
         updateSourceIndicator();
         updateStorageStatus();
         if (!W.getCurrentApiKey()) {

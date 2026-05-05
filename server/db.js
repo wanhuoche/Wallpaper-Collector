@@ -27,6 +27,15 @@ db.exec(`
     created_at TEXT    DEFAULT (datetime('now')),
     updated_at TEXT    DEFAULT (datetime('now'))
   );
+
+  CREATE TABLE IF NOT EXISTS favorites (
+    user_id    INTEGER NOT NULL,
+    photo_id   TEXT    NOT NULL,
+    photo_data TEXT    NOT NULL,
+    created_at TEXT    DEFAULT (datetime('now')),
+    PRIMARY KEY (user_id, photo_id),
+    FOREIGN KEY (user_id) REFERENCES users(id)
+  );
 `);
 
 module.exports = db;

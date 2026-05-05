@@ -21,6 +21,55 @@
         }
     }
 
+    // ── 云端 API ──
+
+    function apiBase() {
+        return W.auth ? (W.auth.getBaseUrl ? W.auth.getBaseUrl() : '') : '';
+    }
+
+    function cloudFetch(path, options) {
+        var base = '';
+        var meta = document.querySelector('meta[name="api-base"]');
+        if (meta && meta.content) base = meta.content;
+
+        var url = base + path;
+        var opts = options || {};
+        var headers = opts.headers || {};
+        headers['Content-Type'] = 'application/json';
+        var token = W.auth && W.auth.getToken ? W.auth.getToken() : null;
+        if (token) headers['Authorization'] = 'Bearer ' + token;
+        opts.headers = headers;
+        if (opts.body && typeof opts.body === 'object') {
+            opts.body = JSON.stringify(opts.body);
+        }
+        return fetch(url, opts).then(function(res) {
+            return res.json().then(function(data) {
+                if (!res.ok) throw new Error(data.error || '请求失败');
+                return data;
+            });
+        });
+    }
+
+    function syncWithCloud() {
+        var token = W.auth && W.auth.getToken ? W.auth.getToken() : null;
+        if (!token) return Promise.resolve();
+
+        return cloudFetch('/api/auth/favorites/sync', {
+            method: 'POST',
+            body: { favorites: W.state.favorites }
+        }).then(function(data) {
+            if (data.favorites && data.favorites.length >= 0) {
+                W.state.favorites = data.favorites;
+                save(data.favorites);
+                updateCount();
+                if (W.state.activeTab === 'favorites') render();
+                if (W.state.activeTab === 'search') updateSearchCardFavButtons();
+            }
+        }).catch(function(err) {
+            console.warn('收藏同步失败:', err.message);
+        });
+    }
+
     function isFavorite(id, source) {
         return W.state.favorites.some(function(f) {
             return String(f.id) === String(id) && f.source === source;
@@ -51,6 +100,10 @@
         }
         W.state.favorites = list;
         save(list);
+
+        // 云端同步
+        syncWithCloud();
+
         return added;
     }
 
@@ -235,5 +288,6 @@
         updateModalFavButton: updateModalFavButton,
         updateSearchCardFavButtons: updateSearchCardFavButtons,
         switchTab: switchTab,
+        syncWithCloud: syncWithCloud,
     };
 })();

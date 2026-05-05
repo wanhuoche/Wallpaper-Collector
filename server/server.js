@@ -1,5 +1,6 @@
 const express = require('express');
 const authRoutes = require('./routes/auth');
+const favoritesRoutes = require('./routes/favorites');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -18,6 +19,7 @@ app.use((req, res, next) => {
 
 // 路由
 app.use('/api/auth', authRoutes);
+app.use('/api/auth', favoritesRoutes);
 
 // 健康检查
 app.get('/api/health', (req, res) => {
