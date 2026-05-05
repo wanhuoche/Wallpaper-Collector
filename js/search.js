@@ -507,7 +507,7 @@
 
         var config = W.getCurrentConfig();
         var quality = parseQuality();
-        var useGuestProxy = !W.getCurrentApiKey();
+        var useGuestProxy = !W.getCurrentApiKey() || !W.state.user;
 
         var parsed;
         if (useGuestProxy) {
