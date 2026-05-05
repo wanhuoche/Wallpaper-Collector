@@ -6,6 +6,7 @@
 
     // ---- 状态（默认值，启动时从 storage 加载覆盖）----
     W.state = {
+        user: null,
         source: 'wallhaven',
         apiKeys: { wallhaven: '', pixabay: '', unsplash: '' },
         perPage: 30,
@@ -418,6 +419,14 @@
     (async function init() {
         var settings = await W.storage.load();
         if (settings) W.storage.applySettings(settings);
+
+        // 检查登录态
+        var user = await W.auth.checkAuth();
+        if (!user) {
+            W.state.user = null;
+        }
+        W.auth.updateNavUser();
+
         updateSourceIndicator();
         updateStorageStatus();
         if (!W.getCurrentApiKey()) {

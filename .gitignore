@@ -2,3 +2,6 @@
 Thumbs.db
 *.log
 js/壁纸收集器设置.json
+node_modules/
+data/
+server/node_modules/

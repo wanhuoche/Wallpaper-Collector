@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="api-base" content="http://localhost:3000">
+    <title>登录 · 壁纸收集器</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🖼</text></svg>">
+    <link rel="stylesheet" href="style.css">
+    <script src="js/theme.js"></script>
+</head>
+<body class="auth-body">
+
+    <div class="auth-bg" id="authBg"></div>
+
+    <div class="auth-container">
+        <a href="index.html" class="auth-back">← 返回首页</a>
+
+        <div class="auth-card">
+            <div class="auth-logo">🖼</div>
+            <h1 class="auth-title">欢迎回来</h1>
+            <p class="auth-subtitle">登录你的账号，跨设备同步收藏和设置</p>
+
+            <form class="auth-form" id="loginForm" novalidate autocomplete="on">
+                <div class="auth-field">
+                    <label class="auth-label" for="email">邮箱</label>
+                    <input
+                        type="email"
+                        class="auth-input"
+                        id="email"
+                        name="email"
+                        placeholder="your@email.com"
+                        autocomplete="email"
+                        required
+                    />
+                </div>
+
+                <div class="auth-field">
+                    <label class="auth-label" for="password">密码</label>
+                    <input
+                        type="password"
+                        class="auth-input"
+                        id="password"
+                        name="password"
+                        placeholder="输入密码"
+                        autocomplete="current-password"
+                        required
+                    />
+                </div>
+
+                <p class="auth-error" id="loginError"></p>
+
+                <button type="submit" class="btn-auth" id="btnLogin">
+                    <span class="btn-auth-text">登 录</span>
+                    <span class="btn-auth-spinner" style="display:none;"></span>
+                </button>
+            </form>
+
+            <p class="auth-switch">
+                还没有账号？<a href="register.html">立即注册 →</a>
+            </p>
+        </div>
+
+        <p class="auth-footer">
+            登录即表示你同意我们将你的收藏数据安全同步到云端
+        </p>
+    </div>
+
+    <script src="js/auth.js"></script>
+    <script>
+        (function() {
+            var W = window.WallpaperApp;
+
+            document.querySelector('#authBg').style.backgroundImage =
+                'url(https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1920&q=80)';
+
+            W.auth.checkAuth().then(function(user) {
+                if (user) window.location.href = 'index.html';
+            });
+
+            W.auth.handleFormSubmit(document.querySelector('#loginForm'), function(fields) {
+                return W.auth.login(fields.email, fields.password);
+            });
+        })();
+    </script>
+</body>
+</html>

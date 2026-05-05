@@ -460,3 +460,311 @@ body {
     .settings-panel { width: 100%; right: -100%; }
     .modal-overlay { padding: 16px; }
 }
+
+/* ═══════════════════════════════════════
+   登录 / 注册页
+   ═══════════════════════════════════════ */
+
+.auth-body {
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
+    background: #000;
+}
+
+.auth-bg {
+    position: fixed;
+    inset: 0;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    z-index: 0;
+}
+
+.auth-bg::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0.55);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+}
+
+.auth-container {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 420px;
+    padding: 24px;
+}
+
+.auth-back {
+    display: inline-block;
+    color: rgba(255,255,255,0.7);
+    text-decoration: none;
+    font-size: 14px;
+    margin-bottom: 20px;
+    transition: color .2s;
+}
+
+.auth-back:hover { color: #fff; }
+
+.auth-card {
+    background: rgba(255,255,255,0.12);
+    backdrop-filter: blur(30px);
+    -webkit-backdrop-filter: blur(30px);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 20px;
+    padding: 40px 32px;
+    text-align: center;
+}
+
+[data-theme="dark"] .auth-card {
+    background: rgba(28,28,30,0.75);
+    border-color: rgba(255,255,255,0.08);
+}
+
+.auth-logo {
+    font-size: 48px;
+    margin-bottom: 12px;
+}
+
+.auth-title {
+    font-size: 24px;
+    font-weight: 700;
+    color: #fff;
+    margin: 0 0 6px 0;
+}
+
+.auth-subtitle {
+    font-size: 14px;
+    color: rgba(255,255,255,0.55);
+    margin: 0 0 28px 0;
+    line-height: 1.5;
+}
+
+.auth-form { text-align: left; }
+
+.auth-field { margin-bottom: 18px; }
+
+.auth-label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.7);
+    margin-bottom: 6px;
+}
+
+.auth-input {
+    width: 100%;
+    padding: 12px 14px;
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 12px;
+    background: rgba(255,255,255,0.08);
+    color: #fff;
+    font-size: 15px;
+    font-family: inherit;
+    outline: none;
+    transition: border-color .2s, box-shadow .2s;
+    box-sizing: border-box;
+}
+
+.auth-input::placeholder { color: rgba(255,255,255,0.3); }
+
+.auth-input:focus {
+    border-color: rgba(10,132,255,0.6);
+    box-shadow: 0 0 0 3px rgba(10,132,255,0.15);
+}
+
+.auth-error {
+    color: #ff453a;
+    font-size: 13px;
+    margin: -6px 0 16px 0;
+    min-height: 18px;
+    text-align: center;
+}
+
+.btn-auth {
+    width: 100%;
+    padding: 13px;
+    border: none;
+    border-radius: 12px;
+    background: #0a84ff;
+    color: #fff;
+    font-size: 16px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background .2s, transform .1s;
+    position: relative;
+}
+
+.btn-auth:hover { background: #0070e0; }
+.btn-auth:active { transform: scale(0.98); }
+.btn-auth:disabled { background: rgba(10,132,255,0.4); cursor: not-allowed; }
+
+.btn-auth-spinner {
+    width: 20px;
+    height: 20px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin .6s linear infinite;
+    display: inline-block;
+    vertical-align: middle;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.auth-switch {
+    margin-top: 24px;
+    font-size: 14px;
+    color: rgba(255,255,255,0.5);
+}
+
+.auth-switch a {
+    color: #0a84ff;
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.auth-switch a:hover { text-decoration: underline; }
+
+.auth-footer {
+    text-align: center;
+    font-size: 12px;
+    color: rgba(255,255,255,0.3);
+    margin-top: 32px;
+    line-height: 1.6;
+}
+
+@media (max-width: 480px) {
+    .auth-card { padding: 28px 20px; border-radius: 16px; }
+    .auth-title { font-size: 22px; }
+}
+
+/* ═══════════════════════════════════════
+   导航栏 — 用户头像 / 登录按钮
+   ═══════════════════════════════════════ */
+
+.btn-login {
+    padding: 6px 16px;
+    border: 1px solid var(--accent);
+    border-radius: 8px;
+    background: transparent;
+    color: var(--accent);
+    font-size: 13px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background .2s, color .2s;
+}
+
+.btn-login:hover { background: var(--accent); color: #fff; }
+
+.nav-user {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 10px;
+    transition: background .2s;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+.nav-user:hover { background: rgba(128,128,128,0.12); }
+
+.nav-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #0a84ff, #5e5ce6);
+    color: #fff;
+    font-size: 14px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.nav-username {
+    font-size: 14px;
+    font-weight: 600;
+    color: inherit;
+    max-width: 100px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.nav-user-dropdown {
+    display: none;
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    min-width: 220px;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+    z-index: 200;
+    overflow: hidden;
+}
+
+.nav-user-dropdown.open { display: block; }
+
+.user-info-item {
+    padding: 14px 16px 8px;
+    cursor: default;
+}
+
+.user-info-name {
+    display: block;
+    font-size: 15px;
+    font-weight: 700;
+    margin-bottom: 2px;
+}
+
+.user-info-email {
+    display: block;
+    font-size: 12px;
+    color: #86868b;
+}
+
+.dropdown-divider {
+    height: 1px;
+    background: var(--border);
+    margin: 8px 0;
+}
+
+.logout-item {
+    width: 100%;
+    padding: 10px 16px 14px;
+    border: none;
+    background: none;
+    color: #ff453a;
+    font-size: 14px;
+    font-weight: 500;
+    font-family: inherit;
+    cursor: pointer;
+    text-align: left;
+    transition: background .15s;
+}
+
+.logout-item:hover { background: rgba(255,69,58,0.08); }
+
+[data-theme="dark"] .nav-user-dropdown {
+    background: #2c2c2e;
+    border-color: rgba(255,255,255,0.1);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+}
+
+[data-theme="dark"] .user-info-email { color: #8e8e93; }
+[data-theme="dark"] .dropdown-divider { background: rgba(255,255,255,0.1); }
