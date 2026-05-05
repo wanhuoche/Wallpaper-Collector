@@ -365,6 +365,7 @@
         W.dom.resultsGrid.querySelectorAll('.card-fav').forEach(function(btn) {
             btn.addEventListener('click', function(e) {
                 e.stopPropagation();
+                if (!W.state.user) { location.href = 'login.html'; return; }
                 var idx = parseInt(btn.dataset.index);
                 var photo = W.state.photos[idx];
                 var added = W.favorites.toggle(photo, W.state.source);

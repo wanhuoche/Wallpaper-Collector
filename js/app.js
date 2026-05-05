@@ -375,6 +375,7 @@
     }
     D.modalFav.addEventListener('click', function() {
         if (!W.state.modalPhoto) return;
+        if (!W.state.user) { location.href = 'login.html'; return; }
         var photo = W.state.modalPhoto;
         var added = W.favorites.toggle(photo, photo.source || W.state.source);
         W.favorites.updateModalFavButton();
