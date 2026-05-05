@@ -1,13 +1,8 @@
 {
   "name": "wallpaper-collector",
   "version": "1.0.0",
-  "description": "壁纸收集器 — 多图源聚合搜索 + 用户系统",
-  "type": "module",
+  "private": true,
   "scripts": {
     "dev:server": "cd server && node server.js"
-  },
-  "dependencies": {
-    "bcryptjs": "^2.4.3",
-    "jose": "^5.9.0"
   }
 }

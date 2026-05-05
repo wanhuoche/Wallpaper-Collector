@@ -1,8 +1,0 @@
-{
-  "name": "wallpaper-functions",
-  "type": "module",
-  "dependencies": {
-    "bcryptjs": "^2.4.3",
-    "jose": "^5.9.0"
-  }
-}
