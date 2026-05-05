@@ -7,7 +7,8 @@
     var TOKEN_KEY = 'wp_auth_token';
     var API_BASE = (function() {
         var meta = document.querySelector('meta[name="api-base"]');
-        return meta ? meta.content : 'http://localhost:3000';
+        if (meta && meta.content) return meta.content;
+        return '';  // 生产环境：同源 Pages Functions
     })();
 
     // ── Token 管理 ──

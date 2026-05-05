@@ -1,0 +1,11 @@
+name = "wallpaper-api"
+main = "src/index.js"
+compatibility_date = "2025-05-05"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "wallpaper-db"
+database_id = "a1c2d4bd-30ac-4638-80cf-3343dc5a8353"
+
+[observability]
+enabled = true
