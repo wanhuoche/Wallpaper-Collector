@@ -110,7 +110,9 @@
 
     function logout() {
         clearToken();
+        localStorage.removeItem('wp_favorites');
         W.state.user = null;
+        W.state.favorites = [];
         updateNavUser();
         window.location.href = 'login.html';
     }
