@@ -63,6 +63,7 @@
             perPage: W.state.perPage,
             ratioTolerance: W.state.ratioTolerance,
             purity: W.state.selectedPurity,
+            categories: W.state.selectedCategories,
         };
     }
 
@@ -79,6 +80,9 @@
         if (s.purity) {
             W.state.selectedPurity = s.purity;
             localStorage.setItem('wp_purity', s.purity);
+        }
+        if (s.categories && Array.isArray(s.categories)) {
+            W.state.selectedCategories = s.categories;
         }
     }
 

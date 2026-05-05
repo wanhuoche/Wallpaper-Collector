@@ -14,6 +14,7 @@
         selectedRatio: 'all',
         selectedQuality: 'all',
         selectedPurity: 'safe',
+        selectedCategories: ['General', 'Anime', 'People'],
         currentQuery: '',
         currentPage: 1,
         totalResults: 0,
@@ -30,6 +31,7 @@
         ratioTags: $('#ratioTags'),
         qualityTags: $('#qualityTags'),
         purityTags: $('#purityTags'),
+        categoryTags: $('#categoryTags'),
         resultsGrid: $('#resultsGrid'),
         resultsCount: $('#resultsCount'),
         loadMoreWrap: $('#loadMoreWrap'),
@@ -207,6 +209,18 @@
         tag.classList.add('active');
         W.state.selectedPurity = tag.dataset.purity;
         localStorage.setItem('wp_purity', W.state.selectedPurity);
+        if (W.state.currentQuery) { W.state.currentPage = 1; W.state.allPhotos = []; W.favorites.switchTab('search'); filterSearch(); }
+    });
+
+    D.categoryTags.addEventListener('click', function(e) {
+        var tag = e.target.closest('.category-tag');
+        if (!tag) return;
+        tag.classList.toggle('active');
+        var selected = [];
+        D.categoryTags.querySelectorAll('.category-tag.active').forEach(function(t) {
+            selected.push(t.dataset.category);
+        });
+        W.state.selectedCategories = selected;
         if (W.state.currentQuery) { W.state.currentPage = 1; W.state.allPhotos = []; W.favorites.switchTab('search'); filterSearch(); }
     });
 
@@ -419,6 +433,11 @@
         // 同步纯度标签 UI 与状态
         D.purityTags.querySelectorAll('.purity-tag').forEach(function(tag) {
             tag.classList.toggle('active', tag.dataset.purity === W.state.selectedPurity);
+        });
+
+        // 同步分类标签 UI 与状态
+        D.categoryTags.querySelectorAll('.category-tag').forEach(function(tag) {
+            tag.classList.toggle('active', W.state.selectedCategories.indexOf(tag.dataset.category) >= 0);
         });
 
         // 检查登录态

@@ -259,6 +259,24 @@
         });
     }
 
+    function getCategoryBitmask() {
+        var sel = W.state.selectedCategories;
+        return [
+            sel.indexOf('General') >= 0 ? '1' : '0',
+            sel.indexOf('Anime') >= 0 ? '1' : '0',
+            sel.indexOf('People') >= 0 ? '1' : '0',
+        ].join('');
+    }
+
+    function filterByCategory(photos) {
+        var sel = W.state.selectedCategories;
+        if (sel.length === 3) return photos;
+        return photos.filter(function(p) {
+            if (!p.alt) return true;
+            return sel.indexOf(p.alt) >= 0;
+        });
+    }
+
     function filterByQuality(photos) {
         var q = parseQuality();
         return photos.filter(function(p) {
@@ -524,6 +542,7 @@
                 perPage: W.state.perPage,
                 ratio: W.state.selectedRatio,
                 purity: W.state.selectedPurity,
+                categories: getCategoryBitmask(),
                 minWidth: quality.minW,
                 minHeight: quality.minH,
             };
@@ -586,6 +605,7 @@
                     minHeight: quality.minH,
                     orientation: orientation,
                     purityParam: purityParam,
+                    categoriesParam: getCategoryBitmask(),
                 });
             }
 
@@ -632,6 +652,7 @@
             newPhotos = filterByRatio(newPhotos);
             newPhotos = filterByQuality(newPhotos);
             newPhotos = filterByPurity(newPhotos);
+            newPhotos = filterByCategory(newPhotos);
 
             if (W.state.currentPage === 1) W.state.allPhotos = newPhotos;
             else W.state.allPhotos = W.state.allPhotos.concat(newPhotos);

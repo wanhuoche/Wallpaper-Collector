@@ -367,13 +367,14 @@ async function incrementUsage(env, ip) {
 
 // ── 图源代理 ──
 
-async function proxyWallhaven(apiKey, query, page, perPage, ratio, purity, minWidth, minHeight) {
+async function proxyWallhaven(apiKey, query, page, perPage, ratio, purity, minWidth, minHeight, categories) {
   const params = new URLSearchParams();
   params.set('q', query);
   params.set('per_page', perPage);
   params.set('page', page);
   if (ratio) params.set('ratios', ratio);
   params.set('purity', purity === 'all' ? '111' : '110');
+  if (categories && categories !== '111') params.set('categories', categories);
   if (minWidth && minHeight) {
     params.set('atleast', minWidth + 'x' + minHeight);
   } else if (minWidth) {
@@ -489,7 +490,7 @@ async function handleGuestSearch(request, env) {
   }
 
   const body = await request.json();
-  const { source, query, page, perPage, ratio, purity, minWidth, minHeight } = body;
+  const { source, query, page, perPage, ratio, purity, categories, minWidth, minHeight } = body;
 
   if (!source || !query) {
     return json({ error: '缺少 source 或 query 参数' }, 400);
@@ -525,7 +526,7 @@ async function handleGuestSearch(request, env) {
     let result;
     switch (source) {
       case 'wallhaven':
-        result = await proxyWallhaven(apiKey, query, page, perPage, ratioParam, purity, minWidth, minHeight);
+        result = await proxyWallhaven(apiKey, query, page, perPage, ratioParam, purity, minWidth, minHeight, categories);
         break;
       case 'pixabay':
         result = await proxyPixabay(apiKey, query, page, perPage, minWidth, minHeight);
