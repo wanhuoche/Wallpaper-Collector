@@ -4,14 +4,13 @@ window.WallpaperApp.SOURCE_CONFIG = {
     wallhaven: {
         name: 'Wallhaven',
         baseUrl: 'https://shrill-cherry-eb64.anniecassidyc.workers.dev/',
-        buildParams(query, perPage, page, { ratioParam, minWidth, minHeight, purityParam, categoriesParam }) {
+        buildParams(query, perPage, page, { ratioParam, minWidth, minHeight, purityParam }) {
             const params = new URLSearchParams();
             params.set('q', query);
             params.set('per_page', perPage);
             params.set('page', page);
             if (ratioParam) params.set('ratios', ratioParam);
             if (purityParam) params.set('purity', purityParam);
-            if (categoriesParam && categoriesParam !== '111') params.set('categories', categoriesParam);
             if (minWidth && minHeight) {
                 params.set('atleast', `${minWidth}x${minHeight}`);
             } else if (minWidth) {

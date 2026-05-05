@@ -273,7 +273,8 @@
         if (sel.length === 3) return photos;
         return photos.filter(function(p) {
             if (!p.alt) return true;
-            return sel.indexOf(p.alt) >= 0;
+            var cat = p.alt.charAt(0).toUpperCase() + p.alt.slice(1).toLowerCase();
+            return sel.indexOf(cat) >= 0;
         });
     }
 
@@ -542,7 +543,6 @@
                 perPage: W.state.perPage,
                 ratio: W.state.selectedRatio,
                 purity: W.state.selectedPurity,
-                categories: getCategoryBitmask(),
                 minWidth: quality.minW,
                 minHeight: quality.minH,
             };
@@ -605,7 +605,6 @@
                     minHeight: quality.minH,
                     orientation: orientation,
                     purityParam: purityParam,
-                    categoriesParam: getCategoryBitmask(),
                 });
             }
 
