@@ -667,6 +667,12 @@
             newPhotos = filterByRatio(newPhotos);
             newPhotos = filterByQuality(newPhotos);
             newPhotos = filterByPurity(newPhotos);
+            // --- DEBUG: 打印 API 返回的 category/alt 值 ---
+            var altValues = {};
+            newPhotos.forEach(function(p) { var v = p.alt || '(空)'; altValues[v] = (altValues[v] || 0) + 1; });
+            console.log('📂 API 返回的 alt (category) 值分布:', JSON.stringify(altValues));
+            console.log('📂 selectedCategories:', JSON.stringify(W.state.selectedCategories));
+            // --- DEBUG END ---
             newPhotos = filterByCategory(newPhotos);
 
             if (W.state.currentPage === 1) W.state.allPhotos = newPhotos;
