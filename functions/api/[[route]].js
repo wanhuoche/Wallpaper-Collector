@@ -98,8 +98,8 @@ function validateRegister(body) {
   if (!body.email || !EMAIL_RE.test(body.email)) {
     errors.push('邮箱格式不正确');
   }
-  if (!body.password || body.password.length < 6 || body.password.length > 12) {
-    errors.push('密码需 6-12 位');
+  if (!body.password || body.password.length < 8 || body.password.length > 16) {
+    errors.push('密码需 8-16 位');
   }
   return errors;
 }
@@ -183,8 +183,8 @@ async function handlePassword(request, env) {
   const body = await request.json();
   const { oldPassword, newPassword } = body;
 
-  if (!oldPassword || !newPassword || newPassword.length < 6 || newPassword.length > 12) {
-    return json({ error: '新密码需 6-12 位' }, 400);
+  if (!oldPassword || !newPassword || newPassword.length < 8 || newPassword.length > 16) {
+    return json({ error: '新密码需 8-16 位' }, 400);
   }
 
   const user = await env.DB.prepare('SELECT password FROM users WHERE id = ?').bind(userId).first();

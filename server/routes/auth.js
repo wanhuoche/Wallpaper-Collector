@@ -47,8 +47,8 @@ function validateRegister(body) {
   if (!body.email || !EMAIL_RE.test(body.email)) {
     errors.push('邮箱格式不正确');
   }
-  if (!body.password || body.password.length < 6 || body.password.length > 12) {
-    errors.push('密码需 6-12 位');
+  if (!body.password || body.password.length < 8 || body.password.length > 16) {
+    errors.push('密码需 8-16 位');
   }
   return errors;
 }
@@ -132,8 +132,8 @@ router.get('/me', verifyToken, (req, res) => {
 router.put('/password', verifyToken, async (req, res) => {
   const { oldPassword, newPassword } = req.body;
 
-  if (!oldPassword || !newPassword || newPassword.length < 6 || newPassword.length > 12) {
-    return res.status(400).json({ error: '新密码需 6-12 位' });
+  if (!oldPassword || !newPassword || newPassword.length < 8 || newPassword.length > 16) {
+    return res.status(400).json({ error: '新密码需 8-16 位' });
   }
 
   const user = db.prepare('SELECT password FROM users WHERE id = ?').get(req.userId);
