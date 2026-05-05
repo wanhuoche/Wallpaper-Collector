@@ -2,7 +2,7 @@
 // bcrypt → PBKDF2 + SHA-256  |  JWT → HMAC-SHA256
 
 const SECRET_RAW = new TextEncoder().encode('wallpaper-collector-secret-key-change-me');
-const PBKDF2_ITERATIONS = 600000;
+const PBKDF2_ITERATIONS = 100000;  // Workers 上限
 const JWT_EXPIRES = 7 * 24 * 60 * 60; // 7 天
 
 // ── Base64URL ──
