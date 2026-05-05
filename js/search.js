@@ -252,6 +252,13 @@
         return results;
     }
 
+    function filterByPurity(photos) {
+        if (W.state.selectedPurity === 'all') return photos;
+        return photos.filter(function(p) {
+            return p.purity !== 'nsfw';
+        });
+    }
+
     function filterByQuality(photos) {
         var q = parseQuality();
         return photos.filter(function(p) {
@@ -499,63 +506,131 @@
 
         var config = W.getCurrentConfig();
         var quality = parseQuality();
-        var ratioParam = config.mapRatio(W.state.selectedRatio);
-        var orientation = getOrientationForUnsplash(W.state.selectedRatio);
-        var purityParam = W.state.source === 'wallhaven'
-            ? (W.state.selectedPurity === 'safe' ? '110' : '111')
-            : '';
+        var useGuestProxy = !W.getCurrentApiKey();
 
-        var params;
-        if (W.state.source === 'pixabay') {
-            var temp = { minWidth: quality.minW, minHeight: quality.minH };
-            params = config.buildParams(query, W.state.perPage, W.state.currentPage, temp);
-            params.set('key', W.getCurrentApiKey());
-        } else {
-            params = config.buildParams(query, W.state.perPage, W.state.currentPage, {
-                ratioParam: ratioParam,
+        var parsed;
+        if (useGuestProxy) {
+            // ── 游客代理搜索 ──
+            var apiBase = (function() {
+                var meta = document.querySelector('meta[name="api-base"]');
+                return meta ? meta.content : '';
+            })();
+
+            var guestBody = {
+                source: W.state.source,
+                query: query,
+                page: W.state.currentPage,
+                perPage: W.state.perPage,
+                ratio: W.state.selectedRatio,
+                purity: W.state.selectedPurity,
                 minWidth: quality.minW,
                 minHeight: quality.minH,
-                orientation: orientation,
-                purityParam: purityParam,
-            });
-        }
+            };
 
-        var url;
-        if (W.state.source === 'wallhaven') {
-            var targetUrl = 'https://wallhaven.cc/api/v1/search?' + params.toString();
-            url = config.baseUrl + '?url=' + encodeURIComponent(targetUrl);
-        } else {
-            var sep = config.baseUrl.indexOf('?') !== -1 ? '&' : '?';
-            url = config.baseUrl + sep + params.toString();
-        }
-        var headers = config.getAuthHeader(W.getCurrentApiKey());
+            var guestHeaders = { 'Content-Type': 'application/json' };
+            var token = W.auth && W.auth.getToken ? W.auth.getToken() : null;
+            if (token) guestHeaders['Authorization'] = 'Bearer ' + token;
 
-        try {
-            var resp = await fetch(url, { headers: headers, signal: signal });
-            if (!resp.ok) {
-                var errMsg;
-                if (resp.status === 401) {
-                    errMsg = 'API Key 无效或已过期，请在设置中更新';
-                } else if (resp.status === 403) {
-                    errMsg = 'API 拒绝访问（403），请检查 API Key 权限';
-                } else if (resp.status === 429) {
-                    errMsg = '请求过于频繁，请稍后重试';
-                } else if (resp.status >= 500) {
-                    errMsg = '图源服务器故障（' + resp.status + '），请稍后重试';
-                } else {
+            try {
+                var resp = await fetch(apiBase + '/api/guest/search', {
+                    method: 'POST',
+                    headers: guestHeaders,
+                    body: JSON.stringify(guestBody),
+                    signal: signal,
+                });
+
+                if (!resp.ok) {
                     var errData = await resp.json().catch(function() { return {}; });
-                    errMsg = errData.error || (errData.errors && errData.errors[0]) || '请求失败 (' + resp.status + ')';
+                    var errMsg = errData.error || '请求失败 (' + resp.status + ')';
+                    if (resp.status === 429) {
+                        errMsg = errData.error || '今日搜索次数已用完，请填写自己的 API Key 或明天再试';
+                    }
+                    throw new Error(errMsg);
                 }
-                throw new Error(errMsg);
+
+                var guestData = await resp.json();
+                parsed = { total: guestData.total, photos: guestData.photos };
+
+                // 更新剩余次数显示
+                if (guestData.usage) {
+                    W._guestUsage = guestData.usage;
+                    var remaining = guestData.usage.remaining;
+                    var limit = guestData.usage.limit;
+                    W.dom.resultsCount.dataset.usage = '今日剩余 ' + remaining + ' / ' + limit + ' 次';
+                }
+            } catch (err) {
+                if (err.name === 'AbortError') throw err;
+                // 重新包装以保证后续 catch 统一处理
+                throw err;
             }
-            var data = await resp.json();
-            var parsed = config.parseResponse(data);
+        } else {
+            // ── 直连 API ──
+            W._guestUsage = null;
+            W.dom.resultsCount.dataset.usage = '';
+            var ratioParam = config.mapRatio(W.state.selectedRatio);
+            var orientation = getOrientationForUnsplash(W.state.selectedRatio);
+            var purityParam = W.state.source === 'wallhaven'
+                ? (W.state.selectedPurity === 'safe' ? '110' : '111')
+                : '';
+
+            var params;
+            if (W.state.source === 'pixabay') {
+                var temp = { minWidth: quality.minW, minHeight: quality.minH };
+                params = config.buildParams(query, W.state.perPage, W.state.currentPage, temp);
+                params.set('key', W.getCurrentApiKey());
+            } else {
+                params = config.buildParams(query, W.state.perPage, W.state.currentPage, {
+                    ratioParam: ratioParam,
+                    minWidth: quality.minW,
+                    minHeight: quality.minH,
+                    orientation: orientation,
+                    purityParam: purityParam,
+                });
+            }
+
+            var url;
+            if (W.state.source === 'wallhaven') {
+                var targetUrl = 'https://wallhaven.cc/api/v1/search?' + params.toString();
+                url = config.baseUrl + '?url=' + encodeURIComponent(targetUrl);
+            } else {
+                var sep = config.baseUrl.indexOf('?') !== -1 ? '&' : '?';
+                url = config.baseUrl + sep + params.toString();
+            }
+            var headers = config.getAuthHeader(W.getCurrentApiKey());
+
+            try {
+                var resp = await fetch(url, { headers: headers, signal: signal });
+                if (!resp.ok) {
+                    var errMsg;
+                    if (resp.status === 401) {
+                        errMsg = 'API Key 无效或已过期，请在设置中更新';
+                    } else if (resp.status === 403) {
+                        errMsg = 'API 拒绝访问（403），请检查 API Key 权限';
+                    } else if (resp.status === 429) {
+                        errMsg = '请求过于频繁，请稍后重试';
+                    } else if (resp.status >= 500) {
+                        errMsg = '图源服务器故障（' + resp.status + '），请稍后重试';
+                    } else {
+                        var errData2 = await resp.json().catch(function() { return {}; });
+                        errMsg = errData2.error || (errData2.errors && errData2.errors[0]) || '请求失败 (' + resp.status + ')';
+                    }
+                    throw new Error(errMsg);
+                }
+                var data = await resp.json();
+                parsed = config.parseResponse(data);
+            } catch (err) {
+                if (err.name === 'AbortError') throw err;
+                throw err;
+            }
+        }
+        try {
             W.state.totalResults = parsed.total;
 
             var rawCount = parsed.photos.length;
             var newPhotos = parsed.photos;
             newPhotos = filterByRatio(newPhotos);
             newPhotos = filterByQuality(newPhotos);
+            newPhotos = filterByPurity(newPhotos);
 
             if (W.state.currentPage === 1) W.state.allPhotos = newPhotos;
             else W.state.allPhotos = W.state.allPhotos.concat(newPhotos);
@@ -574,8 +649,11 @@
             W.dom.btnLoadMore.textContent = '加载更多';
             W.dom.btnLoadMore.disabled = false;
 
-            W.dom.resultsCount.textContent =
-                '找到 ' + parsed.total + ' 张，已加载 ' + W.state.allPhotos.length + ' 张（"' + W.state.currentQuery + '" · ' + (W.state.selectedRatio === 'all' ? '全部比例' : W.state.selectedRatio) + '）';
+            var countMsg = '找到 ' + parsed.total + ' 张，已加载 ' + W.state.allPhotos.length + ' 张（"' + W.state.currentQuery + '" · ' + (W.state.selectedRatio === 'all' ? '全部比例' : W.state.selectedRatio) + '）';
+            if (W._guestUsage && W._guestUsage.remaining !== undefined) {
+                countMsg += ' · 今日剩余 ' + W._guestUsage.remaining + ' / ' + W._guestUsage.limit + ' 次';
+            }
+            W.dom.resultsCount.textContent = countMsg;
         } catch (err) {
             if (err.name === 'AbortError') return;
             if (err.message === 'Failed to fetch') {

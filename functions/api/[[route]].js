@@ -29,7 +29,6 @@ async function hashPassword(password) {
     key, 256
   );
   const hash = new Uint8Array(bits);
-  // 格式: salt:hash (both base64url)
   return base64url(String.fromCharCode(...salt)) + ':' + base64url(String.fromCharCode(...hash));
 }
 
@@ -229,30 +228,25 @@ async function handleSyncFavorites(request, env) {
   const body = await request.json();
   const localFavs = body.favorites || [];
 
-  // 拉取云端数据
   const rows = await env.DB.prepare(
     'SELECT photo_id, photo_data, created_at FROM favorites WHERE user_id = ?'
   ).bind(userId).all();
   const cloudMap = {};
   rows.results.forEach(r => { cloudMap[r.photo_id] = r; });
 
-  // 双向按 savedAt 合并
   const merged = {};
-  // 先放云端的
   Object.entries(cloudMap).forEach(([photoId, row]) => {
     const data = JSON.parse(row.photo_data);
     merged[photoId] = { ...data, savedAt: data.savedAt || 0, _from: 'cloud' };
   });
-  // 再放本地的（savedAt 更新的覆盖旧的）
   localFavs.forEach(fav => {
-    const photoId = fav.full || fav.medium || fav.thumb; // URL 作为唯一键
+    const photoId = fav.full || fav.medium || fav.thumb;
     const cloud = merged[photoId];
     if (!cloud || (fav.savedAt || 0) > (cloud.savedAt || 0)) {
       merged[photoId] = { ...fav, _from: 'local' };
     }
   });
 
-  // 写入/更新数据库
   const upsert = env.DB.prepare(
     'INSERT OR REPLACE INTO favorites (user_id, photo_id, photo_data, created_at) VALUES (?, ?, ?, datetime(?))'
   );
@@ -263,13 +257,11 @@ async function handleSyncFavorites(request, env) {
     batch.push(upsert.bind(userId, photoId, JSON.stringify(data), fav.savedAt ? new Date(fav.savedAt).toISOString() : new Date().toISOString()));
   });
 
-  // D1 batch 最多 100 条
   for (let i = 0; i < batch.length; i += 50) {
     const chunk = batch.slice(i, i + 50);
     await env.DB.batch(chunk);
   }
 
-  // 返回合并后的列表
   const resultList = Object.values(merged).map(fav => {
     const clean = { ...fav };
     delete clean._from;
@@ -279,15 +271,300 @@ async function handleSyncFavorites(request, env) {
   return json({ favorites: resultList });
 }
 
-// ── 路由表 ──
+// ═══════════════════════════════════════
+//  设置云端同步
+// ═══════════════════════════════════════
+
+// GET /settings — 获取云端设置
+async function handleGetSettings(request, env) {
+  const token = extractToken(request);
+  if (!token) return json({ error: '请先登录' }, 401);
+  let userId;
+  try { userId = await verifyToken(token); }
+  catch { return json({ error: '登录已过期' }, 401); }
+
+  const row = await env.DB.prepare(
+    'SELECT settings_json FROM settings WHERE user_id = ?'
+  ).bind(userId).first();
+
+  const settings = row ? JSON.parse(row.settings_json) : {};
+  return json({ settings });
+}
+
+// POST /settings/sync — 上传本地设置，返回合并结果（云端优先）
+async function handleSyncSettings(request, env) {
+  const token = extractToken(request);
+  if (!token) return json({ error: '请先登录' }, 401);
+  let userId;
+  try { userId = await verifyToken(token); }
+  catch { return json({ error: '登录已过期' }, 401); }
+
+  const body = await request.json();
+  const localSettings = body.settings || {};
+
+  // 读取云端已有设置
+  const row = await env.DB.prepare(
+    'SELECT settings_json FROM settings WHERE user_id = ?'
+  ).bind(userId).first();
+
+  let cloudSettings = {};
+  if (row) {
+    try { cloudSettings = JSON.parse(row.settings_json); } catch (e) {}
+  }
+
+  // 合并：云端已有的 key 保留云端值，本地新增的 key 加入
+  const merged = { ...localSettings };
+  if (row) {
+    Object.keys(cloudSettings).forEach(k => {
+      if (k === 'apiKeys' && cloudSettings.apiKeys && localSettings.apiKeys) {
+        merged.apiKeys = { ...localSettings.apiKeys, ...cloudSettings.apiKeys };
+      } else {
+        merged[k] = cloudSettings[k];
+      }
+    });
+  }
+
+  // 写入
+  await env.DB.prepare(
+    'INSERT OR REPLACE INTO settings (user_id, settings_json, updated_at) VALUES (?, ?, datetime(\'now\'))'
+  ).bind(userId, JSON.stringify(merged)).run();
+
+  return json({ settings: merged });
+}
+
+// ═══════════════════════════════════════
+//  游客代理搜索 + 限流
+// ═══════════════════════════════════════
+
+const GUEST_LIMIT = 20;       // 未登录每日次数
+const LOGGED_IN_LIMIT = 40;   // 已登录但无自有 Key 每日次数
+
+function todayStr() {
+  return new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+}
+
+async function checkRateLimit(env, ip, userId) {
+  const date = todayStr();
+  const row = await env.DB.prepare(
+    'SELECT count FROM guest_usage WHERE ip = ? AND date = ?'
+  ).bind(ip, date).first();
+
+  const used = row ? row.count : 0;
+  const limit = userId ? LOGGED_IN_LIMIT : GUEST_LIMIT;
+
+  if (used >= limit) {
+    return { allowed: false, used, limit };
+  }
+  return { allowed: true, used, limit };
+}
+
+async function incrementUsage(env, ip) {
+  const date = todayStr();
+  await env.DB.prepare(
+    'INSERT INTO guest_usage (ip, date, count) VALUES (?, ?, 1) ON CONFLICT (ip, date) DO UPDATE SET count = count + 1'
+  ).bind(ip, date).run();
+}
+
+// ── 图源代理 ──
+
+async function proxyWallhaven(apiKey, query, page, perPage, ratio, purity, minWidth, minHeight) {
+  const params = new URLSearchParams();
+  params.set('q', query);
+  params.set('per_page', perPage);
+  params.set('page', page);
+  if (ratio) params.set('ratios', ratio);
+  params.set('purity', purity === 'all' ? '111' : '110');
+  if (minWidth && minHeight) {
+    params.set('atleast', minWidth + 'x' + minHeight);
+  } else if (minWidth) {
+    params.set('atleast', minWidth + 'x0');
+  }
+
+  const resp = await fetch('https://wallhaven.cc/api/v1/search?' + params.toString(), {
+    headers: { 'X-API-Key': apiKey },
+  });
+  if (!resp.ok) {
+    throw new Error('Wallhaven API error: ' + resp.status);
+  }
+  const data = await resp.json();
+  return {
+    total: data.meta?.total || 0,
+    photos: (data.data || []).map(p => ({
+      id: p.id,
+      width: p.dimension_x,
+      height: p.dimension_y,
+      thumb: p.thumbs?.small || p.thumbs?.original,
+      medium: p.thumbs?.original,
+      full: p.path,
+      preview: p.thumbs?.large || p.thumbs?.original,
+      alt: p.category || '',
+      purity: p.purity || 'sfw',
+      photographer: 'Wallhaven',
+      sourceUrl: p.url,
+    })),
+  };
+}
+
+async function proxyPixabay(apiKey, query, page, perPage, minWidth, minHeight) {
+  const params = new URLSearchParams();
+  params.set('key', apiKey);
+  params.set('q', query);
+  params.set('per_page', perPage);
+  params.set('page', page);
+  params.set('image_type', 'photo');
+  params.set('safesearch', 'true');
+  if (minWidth) params.set('min_width', minWidth);
+  if (minHeight) params.set('min_height', minHeight);
+
+  const resp = await fetch('https://pixabay.com/api/?' + params.toString());
+  if (!resp.ok) {
+    throw new Error('Pixabay API error: ' + resp.status);
+  }
+  const data = await resp.json();
+  return {
+    total: data.totalHits || data.total || 0,
+    photos: (data.hits || []).map(p => ({
+      id: p.id,
+      width: p.imageWidth,
+      height: p.imageHeight,
+      thumb: p.webformatURL,
+      full: p.largeImageURL,
+      preview: p.largeImageURL || p.webformatURL,
+      alt: p.tags,
+      photographer: p.user,
+      sourceUrl: p.pageURL,
+    })),
+  };
+}
+
+async function proxyUnsplash(apiKey, query, page, perPage, orientation) {
+  const params = new URLSearchParams();
+  params.set('query', query);
+  params.set('per_page', perPage);
+  params.set('page', page);
+  if (orientation) params.set('orientation', orientation);
+
+  const resp = await fetch('https://api.unsplash.com/search/photos?' + params.toString(), {
+    headers: { 'Authorization': 'Client-ID ' + apiKey },
+  });
+  if (!resp.ok) {
+    throw new Error('Unsplash API error: ' + resp.status);
+  }
+  const data = await resp.json();
+  return {
+    total: data.total || 0,
+    photos: (data.results || []).map(p => ({
+      id: p.id,
+      width: p.width,
+      height: p.height,
+      thumb: p.urls?.small,
+      full: p.urls?.raw + '&w=2560',
+      preview: p.urls?.regular || p.urls?.small,
+      alt: p.alt_description || p.description || '',
+      photographer: p.user?.name,
+      sourceUrl: p.links?.html,
+    })),
+  };
+}
+
+// POST /guest/search — 游客代理搜索 + IP 限流
+async function handleGuestSearch(request, env) {
+  // 解析 IP
+  const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
+
+  // 尝试解析用户身份（用于限流档位）
+  let userId = null;
+  const token = extractToken(request);
+  if (token) {
+    try { userId = await verifyToken(token); } catch (e) { /* token 无效，按游客处理 */ }
+  }
+
+  // 限流检查
+  const limitCheck = await checkRateLimit(env, ip, userId);
+  if (!limitCheck.allowed) {
+    return json({
+      error: '今日搜索次数已用完（' + limitCheck.limit + ' 次），请填写自己的 API Key 或明天再试',
+      usage: { used: limitCheck.used, limit: limitCheck.limit, remaining: 0 },
+    }, 429);
+  }
+
+  const body = await request.json();
+  const { source, query, page, perPage, ratio, purity, minWidth, minHeight } = body;
+
+  if (!source || !query) {
+    return json({ error: '缺少 source 或 query 参数' }, 400);
+  }
+
+  // 读取 API Key
+  const keyRow = await env.DB.prepare(
+    'SELECT value FROM config WHERE key = ?'
+  ).bind(source + '_api_key').first();
+
+  if (!keyRow || !keyRow.value) {
+    return json({ error: '图源 ' + source + ' 的 API Key 未配置，请联系管理员' }, 500);
+  }
+
+  const apiKey = keyRow.value;
+
+  // 比例映射（Wandhaven 用 16x9 格式，Unsplash 用 landscape/portrait/squarish）
+  let ratioParam = '';
+  let orientation = '';
+  if (ratio && ratio !== 'all') {
+    const parts = ratio.split(':');
+    const w = parseInt(parts[0]);
+    const h = parseInt(parts[1]);
+    if (source === 'wallhaven') {
+      ratioParam = parts[0] + 'x' + parts[1];
+    } else if (source === 'unsplash') {
+      if (w === h) orientation = 'squarish';
+      else orientation = w > h ? 'landscape' : 'portrait';
+    }
+  }
+
+  try {
+    let result;
+    switch (source) {
+      case 'wallhaven':
+        result = await proxyWallhaven(apiKey, query, page, perPage, ratioParam, purity, minWidth, minHeight);
+        break;
+      case 'pixabay':
+        result = await proxyPixabay(apiKey, query, page, perPage, minWidth, minHeight);
+        break;
+      case 'unsplash':
+        result = await proxyUnsplash(apiKey, query, page, perPage, orientation);
+        break;
+      default:
+        return json({ error: '未知图源: ' + source }, 400);
+    }
+
+    // 增加使用计数
+    await incrementUsage(env, ip);
+
+    const newUsed = limitCheck.used + 1;
+    return json({
+      total: result.total,
+      photos: result.photos,
+      usage: { used: newUsed, limit: limitCheck.limit, remaining: limitCheck.limit - newUsed },
+    });
+  } catch (err) {
+    console.error('Guest search proxy error:', err.message);
+    return json({ error: '搜索代理请求失败，请稍后重试' }, 502);
+  }
+}
+
+// ═══════════════════════════════════════
+//  路由表
+// ═══════════════════════════════════════
 
 const ROUTES = {
-  'POST /register': handleRegister,
-  'POST /login':    handleLogin,
-  'GET /me':        handleMe,
-  'PUT /password':  handlePassword,
-  'GET /favorites': handleGetFavorites,
+  'POST /register':       handleRegister,
+  'POST /login':          handleLogin,
+  'GET /me':              handleMe,
+  'PUT /password':        handlePassword,
+  'GET /favorites':       handleGetFavorites,
   'POST /favorites/sync': handleSyncFavorites,
+  'GET /settings':        handleGetSettings,
+  'POST /settings/sync':  handleSyncSettings,
 };
 
 // ── 入口 ──
@@ -295,9 +572,19 @@ const ROUTES = {
 export async function onRequest(context) {
   const { request, env } = context;
   const url = new URL(request.url);
-  const path = url.pathname.replace('/api/auth', '');
+  let path = url.pathname.replace('/api/auth', '');
+
+  // 也处理 /api/guest/* 和 /api/health 等非 auth 前缀路径
+  if (path.startsWith('/api/')) {
+    path = path.replace('/api', '');
+  }
 
   if (path === '/health') return json({ status: 'ok' });
+
+  // 游客搜索
+  if (path === '/guest/search' && request.method === 'POST') {
+    return handleGuestSearch(request, env);
+  }
 
   const key = `${request.method} ${path}`;
   const handler = ROUTES[key];

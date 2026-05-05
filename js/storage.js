@@ -213,6 +213,47 @@
     }
 
     // ═══════════════════════════════════════
+    //  云端设置同步
+    // ═══════════════════════════════════════
+
+    function getApiBase() {
+        var meta = document.querySelector('meta[name="api-base"]');
+        return meta ? meta.content : '';
+    }
+
+    async function syncSettingsToCloud(settings) {
+        if (!W.auth || !W.auth.getToken()) return false;
+        try {
+            var resp = await fetch(getApiBase() + '/api/auth/settings/sync', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + W.auth.getToken() },
+                body: JSON.stringify({ settings: settings }),
+            });
+            if (!resp.ok) return false;
+            var data = await resp.json();
+            return data.settings;
+        } catch (e) {
+            console.warn('Cloud settings sync failed:', e);
+            return false;
+        }
+    }
+
+    async function pullSettingsFromCloud() {
+        if (!W.auth || !W.auth.getToken()) return null;
+        try {
+            var resp = await fetch(getApiBase() + '/api/auth/settings', {
+                headers: { 'Authorization': 'Bearer ' + W.auth.getToken() },
+            });
+            if (!resp.ok) return null;
+            var data = await resp.json();
+            return data.settings;
+        } catch (e) {
+            console.warn('Cloud settings pull failed:', e);
+            return null;
+        }
+    }
+
+    // ═══════════════════════════════════════
     //  Public API → W.storage
     // ═══════════════════════════════════════
 
@@ -237,12 +278,25 @@
             return settings;
         },
 
-        /** 保存：写入 IndexedDB，如果已启用自动同步则同时写入磁盘 */
+        /** 保存：写入 IndexedDB，如果已启用自动同步则同时写入磁盘；登录态下同步云端 */
         save: async function() {
             var settings = collectSettings();
             await idbSet('settings', settings);
             var synced = await syncToFile(settings);
+            // 登录态下异步同步到云端（不阻塞）
+            syncSettingsToCloud(settings);
             return synced;
+        },
+
+        /** 从云端拉取设置并合并到本地 */
+        pullFromCloud: async function() {
+            var cloudSettings = await pullSettingsFromCloud();
+            if (cloudSettings && Object.keys(cloudSettings).length > 0) {
+                applySettings(cloudSettings);
+                await idbSet('settings', collectSettings());
+                return true;
+            }
+            return false;
         },
 
         /** 启用自动磁盘同步（需要用户选择目录，仅 Chrome/Edge） */

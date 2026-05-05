@@ -1,9 +1,14 @@
 const express = require('express');
 const authRoutes = require('./routes/auth');
 const favoritesRoutes = require('./routes/favorites');
+const settingsRoutes = require('./routes/settings');
+const guestRoutes = require('./routes/guest');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// 信任代理 IP（Cloudflare 或本地反向代理）
+app.set('trust proxy', 1);
 
 // 解析 JSON 请求体
 app.use(express.json());
@@ -20,6 +25,8 @@ app.use((req, res, next) => {
 // 路由
 app.use('/api/auth', authRoutes);
 app.use('/api/auth', favoritesRoutes);
+app.use('/api/auth', settingsRoutes);
+app.use('/api', guestRoutes);
 
 // 健康检查
 app.get('/api/health', (req, res) => {

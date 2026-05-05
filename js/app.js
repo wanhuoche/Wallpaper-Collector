@@ -293,11 +293,6 @@
             W.showToast('请输入搜索关键词', 'error');
             return;
         }
-        if (!W.getCurrentApiKey()) {
-            W.showToast('请先设置 ' + W.getCurrentConfig().name + ' 的 API Key', 'error');
-            openSettings();
-            return;
-        }
         addHistory(W.state.currentQuery);
         W.favorites.switchTab('search');
         W.doSearch();
@@ -420,6 +415,11 @@
         var settings = await W.storage.load();
         if (settings) W.storage.applySettings(settings);
 
+        // 同步纯度标签 UI 与状态
+        D.purityTags.querySelectorAll('.purity-tag').forEach(function(tag) {
+            tag.classList.toggle('active', tag.dataset.purity === W.state.selectedPurity);
+        });
+
         // 检查登录态
         var user = await W.auth.checkAuth();
         if (!user) {
@@ -427,23 +427,18 @@
         }
         W.auth.updateNavUser();
 
-        // 登录后同步收藏夹
+        // 登录后同步收藏夹 + 拉取云端设置
         if (user) {
             W.favorites.syncWithCloud();
+            var pulled = await W.storage.pullFromCloud();
+            if (pulled) {
+                // 刷新 UI 以反映云端设置
+                updateSourceIndicator();
+            }
         }
 
         updateSourceIndicator();
         updateStorageStatus();
-        if (!W.getCurrentApiKey()) {
-            D.resultsCount.textContent = '👈 请点击右上角 ⚙ 选择图源并填入 API Key（免费注册获取）';
-            D.resultsGrid.innerHTML =
-                '<div style="grid-column:1/-1;text-align:center;padding:60px 20px;">'
-                + '<div style="font-size:48px;margin-bottom:16px;">🔑</div>'
-                + '<h3 style="font-weight:600;margin-bottom:8px;">需要 API Key</h3>'
-                + '<p style="color:#86868b;font-size:14px;">Wallhaven / Pixabay / Unsplash 均免费注册</p>'
-                + '</div>';
-        } else {
-            D.resultsCount.textContent = '输入关键词开始搜索 · 当前图源：' + W.getCurrentConfig().name;
-        }
+        D.resultsCount.textContent = '输入关键词开始搜索 · 当前图源：' + W.getCurrentConfig().name;
     })();
 })();

@@ -36,6 +36,25 @@ db.exec(`
     PRIMARY KEY (user_id, photo_id),
     FOREIGN KEY (user_id) REFERENCES users(id)
   );
+
+  CREATE TABLE IF NOT EXISTS settings (
+    user_id      INTEGER PRIMARY KEY,
+    settings_json TEXT   NOT NULL,
+    updated_at   TEXT    DEFAULT (datetime('now')),
+    FOREIGN KEY (user_id) REFERENCES users(id)
+  );
+
+  CREATE TABLE IF NOT EXISTS guest_usage (
+    ip    TEXT NOT NULL,
+    date  TEXT NOT NULL,
+    count INTEGER DEFAULT 1,
+    PRIMARY KEY (ip, date)
+  );
+
+  CREATE TABLE IF NOT EXISTS config (
+    key   TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+  );
 `);
 
 module.exports = db;
