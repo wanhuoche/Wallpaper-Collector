@@ -667,30 +667,6 @@
             newPhotos = filterByRatio(newPhotos);
             newPhotos = filterByQuality(newPhotos);
             newPhotos = filterByPurity(newPhotos);
-
-            // ── DEBUG: 分类筛选 ──
-            (function() {
-                var sel = W.state.selectedCategories;
-                var raw = {};
-                newPhotos.forEach(function(p) {
-                    var v = p.alt;
-                    raw[v] = (raw[v] || 0) + 1;
-                });
-                console.group('🔍 分类筛选调试');
-                console.log('选中的分类:', JSON.stringify(sel));
-                console.log('API 返回的 alt 原始值分布:', JSON.stringify(raw));
-                newPhotos.slice(0, 5).forEach(function(p, i) {
-                    var rawAlt = p.alt;
-                    var norm = rawAlt ? rawAlt.charAt(0).toUpperCase() + rawAlt.slice(1).toLowerCase() : '(空)';
-                    var match = sel.indexOf(norm) >= 0;
-                    console.log('  样本' + (i+1) + ': alt="' + rawAlt + '" → 规范化="' + norm + '" → ' + (match ? '✅匹配' : '❌不匹配'));
-                });
-                var after = filterByCategory(newPhotos);
-                console.log('筛选前:', newPhotos.length, '→ 筛选后:', after.length);
-                console.groupEnd();
-            })();
-            // ── DEBUG END ──
-
             newPhotos = filterByCategory(newPhotos);
 
             if (W.state.currentPage === 1) W.state.allPhotos = newPhotos;
@@ -715,6 +691,22 @@
                 countMsg += ' · 今日剩余 ' + W._guestUsage.remaining + ' / ' + W._guestUsage.limit + ' 次';
             }
             W.dom.resultsCount.textContent = countMsg;
+
+            // Auto-fill: 首屏过滤后结果不足一页，自动补拉（最多 5 页）
+            if (W.state.currentPage === 1
+                && W.state.allPhotos.length > 0
+                && W.state.allPhotos.length < W.state.perPage
+                && rawCount >= W.state.perPage
+            ) {
+                if (!W.state._autoFillCount) W.state._autoFillCount = 0;
+                if (W.state._autoFillCount < 5) {
+                    W.state._autoFillCount++;
+                    W.state.currentPage++;
+                    W.doSearch();
+                    return;
+                }
+            }
+            W.state._autoFillCount = 0;
         } catch (err) {
             if (err.name === 'AbortError') return;
             if (err.message === 'Failed to fetch') {

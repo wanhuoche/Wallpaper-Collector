@@ -218,7 +218,12 @@
         tag.classList.toggle('active');
         var selected = [];
         D.categoryTags.querySelectorAll('.category-tag.active').forEach(function(t) {
-            selected.push(t.dataset.category);
+            var cats = t.dataset.categories;
+            if (cats) {
+                cats.split(',').forEach(function(c) { selected.push(c); });
+            } else if (t.dataset.category) {
+                selected.push(t.dataset.category);
+            }
         });
         W.state.selectedCategories = selected;
         if (W.state.currentQuery) { W.state.currentPage = 1; W.state.allPhotos = []; W.favorites.switchTab('search'); filterSearch(); }
@@ -437,7 +442,15 @@
 
         // 同步分类标签 UI 与状态
         D.categoryTags.querySelectorAll('.category-tag').forEach(function(tag) {
-            tag.classList.toggle('active', W.state.selectedCategories.indexOf(tag.dataset.category) >= 0);
+            var cats = tag.dataset.categories;
+            if (cats) {
+                var allActive = cats.split(',').every(function(c) {
+                    return W.state.selectedCategories.indexOf(c) >= 0;
+                });
+                tag.classList.toggle('active', allActive);
+            } else if (tag.dataset.category) {
+                tag.classList.toggle('active', W.state.selectedCategories.indexOf(tag.dataset.category) >= 0);
+            }
         });
 
         // 检查登录态
