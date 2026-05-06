@@ -2,6 +2,35 @@ import { setState } from './state.js';
 
 const W = window.WallpaperApp;
 const STORAGE_KEY = 'wp_favorites';
+const DELETED_KEY = 'wp_fav_deleted';
+
+// ── 删除追踪（防推送失败时云端旧数据回流）──
+
+function loadDeleted() {
+    try {
+        var data = localStorage.getItem(DELETED_KEY);
+        return data ? JSON.parse(data) : {};
+    } catch (e) { return {}; }
+}
+
+function recordDelete(id, source) {
+    var del = loadDeleted();
+    del[id + '_' + source] = Date.now();
+    try { localStorage.setItem(DELETED_KEY, JSON.stringify(del)); } catch (e) {}
+}
+
+function clearDeleted() {
+    try { localStorage.removeItem(DELETED_KEY); } catch (e) {}
+}
+
+function filterDeleted(items) {
+    var del = loadDeleted();
+    if (Object.keys(del).length === 0) return items;
+    return items.filter(function(f) {
+        var key = (f.id || '') + '_' + (f.source || '');
+        return !del[key];
+    });
+}
 
 function load() {
     try {
@@ -53,6 +82,8 @@ function pushFavorites() {
     return cloudFetch('/api/auth/favorites/sync', {
         method: 'POST',
         body: { favorites: W.state.favorites }
+    }).then(function() {
+        clearDeleted(); // 推送成功，云端已是权威状态
     }).catch(function(err) {
         console.warn('收藏推送失败:', err.message);
     });
@@ -83,9 +114,13 @@ function syncWithCloud() {
 function mergeLocal(cloudFavs) {
     if (!cloudFavs || cloudFavs.length === 0) return false;
 
+    // 先过滤掉本地记录为已删除的项（推送未完成的情况下防回流）
+    var filtered = filterDeleted(cloudFavs);
+    if (filtered.length === 0) return false;
+
     var cloudMap = {};
     var maxCloudSavedAt = 0;
-    cloudFavs.forEach(function(f) {
+    filtered.forEach(function(f) {
         var key = f.full || f.medium || f.thumb;
         if (key) {
             cloudMap[key] = f;
@@ -161,6 +196,7 @@ function toggle(photo, source) {
     var added;
     if (idx >= 0) {
         list.splice(idx, 1);
+        recordDelete(photo.id, source);  // 记下删除，防止推送未完成时云端回流
         added = false;
     } else {
         var fav = {};
@@ -173,7 +209,7 @@ function toggle(photo, source) {
     setState('favorites', list);
     save(list);
 
-    pushFavorites();
+    pushFavorites(); // 异步推送，推送成功后 clearDeleted()
 
     return added;
 }
