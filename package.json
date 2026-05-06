@@ -3,6 +3,6 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev:server": "cd server && node server.js"
+    "dev": "wrangler pages dev"
   }
 }
