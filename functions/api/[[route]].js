@@ -389,8 +389,8 @@ async function proxyWallhaven(apiKey, query, page, perPage, ratio, purity, minWi
   params.set('per_page', perPage);
   params.set('page', page);
   if (ratio) params.set('ratios', ratio);
-  const purityMap = { sfw: '100', sketchy: '110', safe: '110', all: '111' };
-  params.set('purity', purityMap[purity] || '110');
+  const purityMap = { sfw: '100', sketchy: '011', safe: '011', all: '111' };
+  params.set('purity', purityMap[purity] || '100');
   if (minWidth && minHeight) {
     params.set('atleast', minWidth + 'x' + minHeight);
   } else if (minWidth) {

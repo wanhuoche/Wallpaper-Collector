@@ -92,8 +92,8 @@ function applySettings(s) {
     if (s.selectedRatio) setState('selectedRatio', s.selectedRatio);
     if (s.selectedQuality) setState('selectedQuality', s.selectedQuality);
     if (s.purity) {
-        // migrate legacy 'safe' → 'sketchy'
-        var purity = s.purity === 'safe' ? 'sketchy' : s.purity;
+        // migrate legacy 'safe' → 'sfw'
+        var purity = s.purity === 'safe' ? 'sfw' : s.purity;
         setState('selectedPurity', purity);
         localStorage.setItem('wp_purity', purity);
     }

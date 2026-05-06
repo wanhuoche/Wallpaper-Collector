@@ -244,10 +244,11 @@ function filterByRatio(photos) {
 }
 
 function filterByPurity(photos) {
-    if (W.state.selectedPurity === 'all') return photos;
+    // 'sfw': 仅安全；'sketchy': Sketchy + NSFW（不含 SFW）
     if (W.state.selectedPurity === 'sfw') return photos.filter(function(p) { return p.purity === 'sfw'; });
-    // 'sketchy' or legacy 'safe': allow sfw + sketchy, filter out nsfw
-    return photos.filter(function(p) { return p.purity !== 'nsfw'; });
+    if (W.state.selectedPurity === 'sketchy') return photos.filter(function(p) { return p.purity !== 'sfw'; });
+    // legacy 'all' / 'safe': no filter
+    return photos;
 }
 
 function getCategoryBitmask() {
@@ -665,7 +666,7 @@ async function doSearch() {
         W.dom.resultsCount.dataset.usage = '';
         var ratioParam = config.mapRatio(W.state.selectedRatio);
         var orientation = getOrientationForUnsplash(W.state.selectedRatio);
-        var purityMap = { sfw: '100', sketchy: '110', safe: '110', all: '111' };
+        var purityMap = { sfw: '100', sketchy: '011', safe: '011', all: '111' };
         var purityParam = W.state.source === 'wallhaven'
             ? (purityMap[W.state.selectedPurity] || '110')
             : '';
