@@ -168,6 +168,12 @@ body {
     padding: 1px 7px; border-radius: 10px; margin-left: 3px;
 }
 .results-count { font-size: 14px; color: var(--text-secondary); font-weight: 500; }
+.hide-faved-toggle {
+    font-size: 13px; color: var(--text-secondary); cursor: pointer;
+    display: flex; align-items: center; gap: 4px; user-select: none;
+    white-space: nowrap;
+}
+.hide-faved-toggle input { cursor: pointer; }
 .results-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));

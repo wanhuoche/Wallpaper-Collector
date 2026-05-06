@@ -335,12 +335,21 @@
     }
 
     function renderResults() {
-        if (W.state.photos.length === 0) {
-            W.dom.resultsGrid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:#86868b;">😔 没有找到匹配的壁纸，试试其他关键词或放宽筛选</div>';
+        // 隐藏已收藏过滤
+        var photos = W.state.photos;
+        if (W.state.hideFaved) {
+            photos = photos.filter(function(p) { return !W.favorites.isFavorite(p.id, W.state.source); });
+        }
+        document.getElementById('hideFavedLabel').style.display = W.state.activeTab === 'search' && W.state.photos.length > 0 ? '' : 'none';
+
+        if (photos.length === 0) {
+            var msg = W.state.hideFaved ? '当前筛选下所有图片都已收藏，取消"隐藏已收藏"查看更多' : '没有找到匹配的壁纸，试试其他关键词或放宽筛选';
+            W.dom.resultsGrid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:#86868b;">😔 ' + msg + '</div>';
             return;
         }
+        W.state._displayPhotos = photos;
         var html = '';
-        W.state.photos.forEach(function(photo, idx) {
+        photos.forEach(function(photo, idx) {
             var res = photo.width + '\xD7' + photo.height;
             var ratioBadge = photo.ratioMatch && photo.ratioMatch !== 'all'
                 ? '<span class="card-badge ' + photo.ratioMatch + '">' + (photo.ratioMatch === 'perfect' ? '精确' : photo.ratioMatch === 'good' ? '接近' : '宽松') + '</span>'
@@ -367,8 +376,10 @@
         W.dom.resultsGrid.innerHTML = html;
         W.attachCardListeners();
     }
+    W._renderResults = renderResults;
 
     W.attachCardListeners = function() {
+        var list = W.state._displayPhotos || W.state.photos;
         W.dom.resultsGrid.querySelectorAll('.image-card').forEach(function(card) {
             card.addEventListener('click', function(e) {
                 if (e.target.closest('.card-download') || e.target.closest('.card-fav')) return;
@@ -378,7 +389,7 @@
         W.dom.resultsGrid.querySelectorAll('.card-download').forEach(function(btn) {
             btn.addEventListener('click', function(e) {
                 e.stopPropagation();
-                W.downloadPhoto(W.state.photos[parseInt(btn.dataset.index)]);
+                W.downloadPhoto(list[parseInt(btn.dataset.index)]);
             });
         });
         W.dom.resultsGrid.querySelectorAll('.card-fav').forEach(function(btn) {
@@ -386,12 +397,19 @@
                 e.stopPropagation();
                 if (!W.state.user) { location.href = 'login.html'; return; }
                 var idx = parseInt(btn.dataset.index);
-                var photo = W.state.photos[idx];
+                var photo = list[idx];
+                if (!photo) return;
                 var added = W.favorites.toggle(photo, W.state.source);
-                btn.textContent = added ? '♥' : '♡';
-                btn.classList.toggle('active', added);
                 W.favorites.updateCount();
                 W.showToast(added ? '已添加到收藏 ♥' : '已取消收藏', 'success');
+                if (W.state.hideFaved && added) {
+                    // 隐藏已收藏模式下，收藏后立即重渲染以隐藏该卡片
+                    W.state.photos = W.state.allPhotos;
+                    renderResults();
+                } else {
+                    btn.textContent = added ? '♥' : '♡';
+                    btn.classList.toggle('active', added);
+                }
             });
         });
     };
@@ -399,19 +417,20 @@
     // ---- 预览 ----
 
     W.openPreview = function(idx) {
-        var photo = W.state.photos[idx];
+        var list = W.state._displayPhotos || W.state.photos;
+        var photo = list[idx];
         if (!photo) return;
         resetZoom(false);
         W.state.modalIndex = idx;
         W.state.modalSource = 'search';
         W.state.modalPhoto = photo;
         loadModalImage(photo);
-        W.dom.modalInfo.textContent = (idx + 1) + ' / ' + W.state.photos.length + '  ' + photo.width + '\xD7' + photo.height + ' \xB7 ' + (photo.photographer || '');
+        W.dom.modalInfo.textContent = (idx + 1) + ' / ' + list.length + '  ' + photo.width + '\xD7' + photo.height + ' \xB7 ' + (photo.photographer || '');
         W.dom.modalOverlay.style.display = 'flex';
         document.body.style.overflow = 'hidden';
         W.favorites.updateModalFavButton();
         updateNavButtons();
-        preloadAdjacent(idx, W.state.photos);
+        preloadAdjacent(idx, list);
     };
 
     W.closePreview = function() {
@@ -434,7 +453,7 @@
     W.navigatePreview = function(direction) {
         if (!W.state.modalPhoto) return;
         resetZoom(false);
-        var list = W.state.modalSource === 'favorites' ? W.state.favorites : W.state.photos;
+        var list = W.state.modalSource === 'favorites' ? W.state.favorites : (W.state._displayPhotos || W.state.photos);
         var newIdx = W.state.modalIndex + direction;
         if (newIdx < 0 || newIdx >= list.length) return;
         var photo = list[newIdx];

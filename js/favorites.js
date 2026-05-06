@@ -293,10 +293,12 @@
         if (targetTab) targetTab.classList.add('active');
 
         if (tabName === 'favorites') {
+            document.getElementById('hideFavedLabel').style.display = 'none';
             W.dom.loadMoreWrap.style.display = 'none';
             W.dom.resultsCount.textContent = '收藏夹 · 共 ' + W.state.favorites.length + ' 张';
             render();
         } else {
+            document.getElementById('hideFavedLabel').style.display = W.state.photos.length > 0 ? '' : 'none';
             if (typeof W.state._searchGridHTML === 'string') {
                 W.dom.resultsGrid.innerHTML = W.state._searchGridHTML;
                 W.attachCardListeners();

@@ -22,6 +22,7 @@
         allPhotos: [],
         isLoading: false,
         modalPhoto: null,
+        hideFaved: false,
     };
 
     // ---- DOM 引用 ----
@@ -417,6 +418,16 @@
         }, { passive: true });
         btnBackTop.addEventListener('click', function() {
             window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
+    }
+
+    // ---- 隐藏已收藏 ----
+    var hideFavedCheckbox = document.getElementById('hideFaved');
+    if (hideFavedCheckbox) {
+        hideFavedCheckbox.addEventListener('change', function() {
+            W.setState('hideFaved', hideFavedCheckbox.checked);
+            W.state.photos = W.state.allPhotos;
+            if (typeof W._renderResults === 'function') W._renderResults();
         });
     }
 
