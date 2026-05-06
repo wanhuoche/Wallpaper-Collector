@@ -449,6 +449,7 @@
 
         // 登录后同步收藏夹 + 拉取云端设置
         if (user) {
+            await W.favorites.pullFromCloud();
             W.favorites.syncWithCloud();
             var pulled = await W.storage.pullFromCloud();
             if (pulled) {

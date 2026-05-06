@@ -23,10 +23,6 @@
 
     // ── 云端 API ──
 
-    function apiBase() {
-        return W.auth ? (W.auth.getBaseUrl ? W.auth.getBaseUrl() : '') : '';
-    }
-
     function cloudFetch(path, options) {
         var base = '';
         var meta = document.querySelector('meta[name="api-base"]');
@@ -68,6 +64,56 @@
         }).catch(function(err) {
             console.warn('收藏同步失败:', err.message);
         });
+    }
+
+    // 以图片 URL 为唯一键，合并云端到本地（按 savedAt 取最新）
+    function mergeLocal(cloudFavs) {
+        if (!cloudFavs || cloudFavs.length === 0) return false;
+
+        var localMap = {};
+        W.state.favorites.forEach(function(f) {
+            var key = f.full || f.medium || f.thumb;
+            if (key) localMap[key] = f;
+        });
+
+        var addedCount = 0;
+        cloudFavs.forEach(function(f) {
+            var key = f.full || f.medium || f.thumb;
+            if (!key) return;
+            var local = localMap[key];
+            if (!local || (f.savedAt || 0) > (local.savedAt || 0)) {
+                localMap[key] = f;
+                if (!local) addedCount++;
+            }
+        });
+
+        var merged = Object.keys(localMap).map(function(k) { return localMap[k]; });
+        merged.sort(function(a, b) { return (b.savedAt || 0) - (a.savedAt || 0); });
+
+        W.state.favorites = merged;
+        save(merged);
+        updateCount();
+        return addedCount > 0;
+    }
+
+    // init 时先从云端拉取收藏列表，本地合并后再同步回去
+    function pullFromCloud() {
+        var token = W.auth && W.auth.getToken ? W.auth.getToken() : null;
+        if (!token) return Promise.resolve();
+
+        return cloudFetch('/api/auth/favorites', { method: 'GET' })
+            .then(function(data) {
+                if (data.favorites && data.favorites.length > 0) {
+                    mergeLocal(data.favorites);
+                    // 将合并结果推回云端
+                    return cloudFetch('/api/auth/favorites/sync', {
+                        method: 'POST',
+                        body: { favorites: W.state.favorites }
+                    });
+                }
+            }).catch(function(err) {
+                console.warn('拉取云端收藏失败:', err.message);
+            });
     }
 
     function isFavorite(id, source) {
@@ -289,5 +335,7 @@
         updateSearchCardFavButtons: updateSearchCardFavButtons,
         switchTab: switchTab,
         syncWithCloud: syncWithCloud,
+        pullFromCloud: pullFromCloud,
+        mergeLocal: mergeLocal,
     };
 })();
