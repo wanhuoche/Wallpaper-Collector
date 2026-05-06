@@ -239,48 +239,29 @@ async function handleSyncFavorites(request, env) {
 
   const body = await request.json();
   const localFavs = body.favorites || [];
+  const now = new Date().toISOString();
 
-  const rows = await env.DB.prepare(
-    'SELECT photo_id, photo_data, created_at FROM favorites WHERE user_id = ?'
-  ).bind(userId).all();
-  const cloudMap = {};
-  rows.results.forEach(r => { cloudMap[r.photo_id] = r; });
+  // 先删后插：客户端发送完整列表，服务端替换式写入（支持删除同步）
+  await env.DB.prepare('DELETE FROM favorites WHERE user_id = ?').bind(userId).run();
 
-  const merged = {};
-  Object.entries(cloudMap).forEach(([photoId, row]) => {
-    const data = JSON.parse(row.photo_data);
-    merged[photoId] = { ...data, savedAt: data.savedAt || 0, _from: 'cloud' };
-  });
-  localFavs.forEach(fav => {
-    const photoId = fav.full || fav.medium || fav.thumb;
-    const cloud = merged[photoId];
-    if (!cloud || (fav.savedAt || 0) > (cloud.savedAt || 0)) {
-      merged[photoId] = { ...fav, _from: 'local' };
+  if (localFavs.length > 0) {
+    const insert = env.DB.prepare(
+      'INSERT INTO favorites (user_id, photo_id, photo_data, created_at) VALUES (?, ?, ?, ?)'
+    );
+    const batch = [];
+    localFavs.forEach(fav => {
+      const photoId = fav.full || fav.medium || fav.thumb;
+      if (!photoId) return;
+      batch.push(insert.bind(userId, photoId, JSON.stringify(fav), fav.savedAt ? new Date(fav.savedAt).toISOString() : now));
+    });
+
+    for (let i = 0; i < batch.length; i += 50) {
+      const chunk = batch.slice(i, i + 50);
+      await env.DB.batch(chunk);
     }
-  });
-
-  const upsert = env.DB.prepare(
-    'INSERT OR REPLACE INTO favorites (user_id, photo_id, photo_data, created_at) VALUES (?, ?, ?, datetime(?))'
-  );
-  const batch = [];
-  Object.entries(merged).forEach(([photoId, fav]) => {
-    const data = { ...fav };
-    delete data._from;
-    batch.push(upsert.bind(userId, photoId, JSON.stringify(data), fav.savedAt ? new Date(fav.savedAt).toISOString() : new Date().toISOString()));
-  });
-
-  for (let i = 0; i < batch.length; i += 50) {
-    const chunk = batch.slice(i, i + 50);
-    await env.DB.batch(chunk);
   }
 
-  const resultList = Object.values(merged).map(fav => {
-    const clean = { ...fav };
-    delete clean._from;
-    return clean;
-  });
-
-  return json({ favorites: resultList });
+  return json({ favorites: localFavs });
 }
 
 // ═══════════════════════════════════════

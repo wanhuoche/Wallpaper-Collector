@@ -80,24 +80,43 @@
         });
     }
 
-    // 以图片 URL 为唯一键，合并云端到本地（按 savedAt 取最新）
+    // 以云端为基准合并：云端有的覆盖本地，云端没有但本地有的保留（可能是离线添加）
+    // 使用 savedAt 判断：本地项若 savedAt 比云端最新项还新，视为离线添加予以保留
     function mergeLocal(cloudFavs) {
         if (!cloudFavs || cloudFavs.length === 0) return false;
 
-        var localMap = {};
-        W.state.favorites.forEach(function(f) {
-            var key = f.full || f.medium || f.thumb;
-            if (key) localMap[key] = f;
-        });
-
-        var addedCount = 0;
+        var cloudMap = {};
+        var maxCloudSavedAt = 0;
         cloudFavs.forEach(function(f) {
             var key = f.full || f.medium || f.thumb;
+            if (key) {
+                cloudMap[key] = f;
+                if ((f.savedAt || 0) > maxCloudSavedAt) maxCloudSavedAt = f.savedAt || 0;
+            }
+        });
+
+        var localMap = {};
+        var addedCount = 0;
+        W.state.favorites.forEach(function(f) {
+            var key = f.full || f.medium || f.thumb;
             if (!key) return;
-            var local = localMap[key];
-            if (!local || (f.savedAt || 0) > (local.savedAt || 0)) {
+            var cloud = cloudMap[key];
+            if (cloud) {
+                // 云端有，取 savedAt 较新的
+                localMap[key] = (f.savedAt || 0) > (cloud.savedAt || 0) ? f : cloud;
+            } else if ((f.savedAt || 0) > maxCloudSavedAt) {
+                // 云端没有但本地 savedAt 比云端最新还新 → 离线添加，保留
                 localMap[key] = f;
-                if (!local) addedCount++;
+                addedCount++;
+            }
+            // 云端没有且 savedAt 不新 → 已在其他设备删除，丢弃
+        });
+
+        // 添加云端有但本地没有的
+        Object.keys(cloudMap).forEach(function(key) {
+            if (!localMap[key]) {
+                localMap[key] = cloudMap[key];
+                addedCount++;
             }
         });
 

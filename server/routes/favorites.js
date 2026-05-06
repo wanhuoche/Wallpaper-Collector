@@ -15,44 +15,28 @@ router.get('/favorites', verifyToken, (req, res) => {
 });
 
 // POST /api/auth/favorites/sync
+// 客户端发送完整收藏列表，服务端替换式写入（支持删除同步）
 router.post('/favorites/sync', verifyToken, (req, res) => {
   const { favorites: localFavs } = req.body;
   const userId = req.userId;
+  const now = new Date().toISOString();
 
-  // 拉取云端数据
-  const rows = db.prepare(
-    'SELECT photo_id, photo_data FROM favorites WHERE user_id = ?'
-  ).all(userId);
-  const cloudMap = {};
-  rows.forEach(r => { cloudMap[r.photo_id] = r; });
-
-  // 双向合并
-  const merged = {};
-  Object.entries(cloudMap).forEach(([photoId, row]) => {
-    const data = JSON.parse(row.photo_data);
-    merged[photoId] = { ...data, savedAt: data.savedAt || 0 };
-  });
-  (localFavs || []).forEach(fav => {
-    const photoId = fav.full || fav.medium || fav.thumb;
-    const cloud = merged[photoId];
-    if (!cloud || (fav.savedAt || 0) > (cloud.savedAt || 0)) {
-      merged[photoId] = fav;
-    }
-  });
-
-  // 写入
-  const upsert = db.prepare(
-    'INSERT OR REPLACE INTO favorites (user_id, photo_id, photo_data, created_at) VALUES (?, ?, ?, datetime(?))'
-  );
   const transaction = db.transaction(() => {
-    Object.entries(merged).forEach(([photoId, fav]) => {
-      upsert.run(userId, photoId, JSON.stringify(fav), fav.savedAt ? new Date(fav.savedAt).toISOString() : new Date().toISOString());
+    // 先删后插，确保删除能同步
+    db.prepare('DELETE FROM favorites WHERE user_id = ?').run(userId);
+
+    const insert = db.prepare(
+      'INSERT INTO favorites (user_id, photo_id, photo_data, created_at) VALUES (?, ?, ?, ?)'
+    );
+    (localFavs || []).forEach(fav => {
+      const photoId = fav.full || fav.medium || fav.thumb;
+      if (!photoId) return;
+      insert.run(userId, photoId, JSON.stringify(fav), fav.savedAt ? new Date(fav.savedAt).toISOString() : now);
     });
   });
   transaction();
 
-  const resultList = Object.values(merged);
-  res.json({ favorites: resultList });
+  res.json({ favorites: localFavs || [] });
 });
 
 module.exports = router;
