@@ -80,20 +80,20 @@
 
     function applySettings(s) {
         if (!s) return;
-        if (s.source) W.state.source = s.source;
+        if (s.source) W.setState('source', s.source);
         if (s.apiKeys) {
             if (s.apiKeys.wallhaven !== undefined) W.state.apiKeys.wallhaven = s.apiKeys.wallhaven;
             if (s.apiKeys.pixabay !== undefined) W.state.apiKeys.pixabay = s.apiKeys.pixabay;
             if (s.apiKeys.unsplash !== undefined) W.state.apiKeys.unsplash = s.apiKeys.unsplash;
         }
-        if (s.perPage) W.state.perPage = s.perPage;
-        if (s.ratioTolerance !== undefined) W.state.ratioTolerance = s.ratioTolerance;
+        if (s.perPage) W.setState('perPage', s.perPage);
+        if (s.ratioTolerance !== undefined) W.setState('ratioTolerance', s.ratioTolerance);
         if (s.purity) {
-            W.state.selectedPurity = s.purity;
+            W.setState('selectedPurity', s.purity);
             localStorage.setItem('wp_purity', s.purity);
         }
         if (s.categories && Array.isArray(s.categories)) {
-            W.state.selectedCategories = s.categories;
+            W.setState('selectedCategories', s.categories);
         }
     }
 
@@ -313,12 +313,14 @@
         /** 退出登录时清空设置 */
         resetSettings: async function() {
             // 重置 state 到默认值
-            W.state.source = 'wallhaven';
-            W.state.apiKeys = { wallhaven: '', pixabay: '', unsplash: '' };
-            W.state.perPage = 30;
-            W.state.ratioTolerance = 0.10;
-            W.state.selectedPurity = 'safe';
-            W.state.selectedCategories = ['General', 'Anime', 'People'];
+            W.updateState({
+                source: 'wallhaven',
+                apiKeys: { wallhaven: '', pixabay: '', unsplash: '' },
+                perPage: 30,
+                ratioTolerance: 0.10,
+                selectedPurity: 'safe',
+                selectedCategories: ['General', 'Anime', 'People'],
+            });
 
             // 清除持久化数据
             try { await idbDel('settings'); } catch(e) {}

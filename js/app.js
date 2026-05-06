@@ -189,7 +189,7 @@
         if (!tag) return;
         D.ratioTags.querySelectorAll('.ratio-tag').forEach(function(t) { t.classList.remove('active'); });
         tag.classList.add('active');
-        W.state.selectedRatio = tag.dataset.ratio;
+        W.setState('selectedRatio', tag.dataset.ratio);
         if (W.state.currentQuery) { W.state.currentPage = 1; W.state.allPhotos = []; W.favorites.switchTab('search'); filterSearch(); }
     });
 
@@ -198,7 +198,7 @@
         if (!tag) return;
         D.qualityTags.querySelectorAll('.quality-tag').forEach(function(t) { t.classList.remove('active'); });
         tag.classList.add('active');
-        W.state.selectedQuality = tag.dataset.quality;
+        W.setState('selectedQuality', tag.dataset.quality);
         if (W.state.currentQuery) { W.state.currentPage = 1; W.state.allPhotos = []; W.favorites.switchTab('search'); filterSearch(); }
     });
 
@@ -207,8 +207,8 @@
         if (!tag) return;
         D.purityTags.querySelectorAll('.purity-tag').forEach(function(t) { t.classList.remove('active'); });
         tag.classList.add('active');
-        W.state.selectedPurity = tag.dataset.purity;
-        localStorage.setItem('wp_purity', W.state.selectedPurity);
+        W.setState('selectedPurity', tag.dataset.purity);
+        localStorage.setItem('wp_purity', tag.dataset.purity);
         W.storage.saveLocal();
         if (W.state.currentQuery) { W.state.currentPage = 1; W.state.allPhotos = []; W.favorites.switchTab('search'); filterSearch(); }
     });
@@ -226,7 +226,7 @@
                 selected.push(t.dataset.category);
             }
         });
-        W.state.selectedCategories = selected;
+        W.setState('selectedCategories', selected);
         W.storage.saveLocal();
         if (W.state.currentQuery) { W.state.currentPage = 1; W.state.allPhotos = []; W.favorites.switchTab('search'); filterSearch(); }
     });
