@@ -1,6 +1,7 @@
 // 图源配置 —— 添加新图源只需在这里增加一个条目
 window.WallpaperApp = window.WallpaperApp || {};
-window.WallpaperApp.SOURCE_CONFIG = {
+
+const SOURCE_CONFIG = {
     wallhaven: {
         name: 'Wallhaven',
         baseUrl: 'https://shrill-cherry-eb64.anniecassidyc.workers.dev/',
@@ -49,34 +50,38 @@ window.WallpaperApp.SOURCE_CONFIG = {
     pixabay: {
         name: 'Pixabay',
         baseUrl: 'https://pixabay.com/api/',
-        buildParams(query, perPage, page, { minWidth, minHeight }) {
+        buildParams(query, perPage, page, { ratioParam, minWidth, minHeight }) {
             const params = new URLSearchParams();
-            params.set('key', this.apiKey);
+            params.set('key', 'API_KEY_PLACEHOLDER'); // replaced at call site
             params.set('q', query);
-            params.set('per_page', perPage);
-            params.set('page', page);
-            params.set('image_type', 'photo');
+            params.set('per_page', String(perPage));
+            params.set('page', String(page));
             params.set('safesearch', 'true');
+            params.set('image_type', 'photo');
             if (minWidth && minHeight) {
-                params.set('min_width', minWidth);
-                params.set('min_height', minHeight);
+                params.set('min_width', String(minWidth));
+                params.set('min_height', String(minHeight));
             } else if (minWidth) {
-                params.set('min_width', minWidth);
+                params.set('min_width', String(minWidth));
             }
+            if (ratioParam === '16x9' || ratioParam === '16:9') params.set('orientation', 'horizontal');
+            else if (ratioParam === '9x16' || ratioParam === '9:16') params.set('orientation', 'vertical');
             return params;
         },
         getAuthHeader() { return {}; },
         parseResponse(data) {
-            const total = data.totalHits || data.total || 0;
+            const total = data.totalHits || 0;
             const photos = (data.hits || []).map(p => ({
-                id: p.id,
+                id: String(p.id),
                 width: p.imageWidth,
                 height: p.imageHeight,
-                thumb: p.webformatURL,
-                full: p.largeImageURL,
-                preview: p.largeImageURL || p.webformatURL,
-                alt: p.tags,
-                photographer: p.user,
+                thumb: p.previewURL,
+                medium: p.largeImageURL,
+                full: p.fullHDURL || p.largeImageURL,
+                preview: p.webformatURL,
+                alt: p.tags || '',
+                purity: 'sfw',
+                photographer: p.user || 'Pixabay',
                 sourceUrl: p.pageURL,
             }));
             return { total, photos };
@@ -85,39 +90,42 @@ window.WallpaperApp.SOURCE_CONFIG = {
     },
     unsplash: {
         name: 'Unsplash',
-        baseUrl: 'https://api.unsplash.com/search/photos',
-        buildParams(query, perPage, page, { orientation }) {
+        baseUrl: 'https://api.unsplash.com/',
+        buildParams(query, perPage, page, { minWidth, minHeight }) {
             const params = new URLSearchParams();
             params.set('query', query);
-            params.set('per_page', perPage);
-            params.set('page', page);
-            if (orientation) params.set('orientation', orientation);
+            params.set('per_page', String(perPage));
+            params.set('page', String(page));
+            if (minWidth && minHeight) {
+                // Unsplash doesn't support min dimensions, filter post-query
+            }
             return params;
         },
-        getAuthHeader(apiKey) { return { 'Authorization': `Client-ID ${apiKey}` }; },
+        getAuthHeader(apiKey) {
+            return { 'Authorization': `Client-ID ${apiKey}` };
+        },
         parseResponse(data) {
             const total = data.total || 0;
             const photos = (data.results || []).map(p => ({
                 id: p.id,
                 width: p.width,
                 height: p.height,
-                thumb: p.urls?.small,
-                full: p.urls?.raw + '&w=2560',
-                preview: p.urls?.regular || p.urls?.small,
+                thumb: p.urls?.thumb || p.urls?.small,
+                medium: p.urls?.regular,
+                full: p.urls?.raw || p.urls?.full,
+                preview: p.urls?.small || p.urls?.thumb,
                 alt: p.alt_description || p.description || '',
-                photographer: p.user?.name,
-                sourceUrl: p.links?.html,
+                purity: 'sfw',
+                photographer: p.user?.name || 'Unsplash',
+                sourceUrl: p.links?.html || '',
             }));
             return { total, photos };
         },
-        mapRatio(selected) {
-            if (selected === '1:1') return 'squarish';
-            if (['9:16', '16:9', '21:9', '3:2', '4:3', '16:10'].includes(selected)) {
-                const w = parseInt(selected.split(':')[0]);
-                const h = parseInt(selected.split(':')[1]);
-                return w >= h ? 'landscape' : 'portrait';
-            }
-            return '';
-        },
+        mapRatio() { return ''; },
     },
 };
+
+export { SOURCE_CONFIG };
+
+// backward compat
+window.WallpaperApp.SOURCE_CONFIG = SOURCE_CONFIG;
