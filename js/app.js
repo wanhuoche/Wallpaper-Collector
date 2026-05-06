@@ -209,6 +209,7 @@
         tag.classList.add('active');
         W.state.selectedPurity = tag.dataset.purity;
         localStorage.setItem('wp_purity', W.state.selectedPurity);
+        W.storage.saveLocal();
         if (W.state.currentQuery) { W.state.currentPage = 1; W.state.allPhotos = []; W.favorites.switchTab('search'); filterSearch(); }
     });
 
@@ -226,6 +227,7 @@
             }
         });
         W.state.selectedCategories = selected;
+        W.storage.saveLocal();
         if (W.state.currentQuery) { W.state.currentPage = 1; W.state.allPhotos = []; W.favorites.switchTab('search'); filterSearch(); }
     });
 

@@ -292,10 +292,22 @@
             return synced;
         },
 
+        /** 静默保存到本地（IndexedDB + 文件），不同步云端 */
+        saveLocal: async function() {
+            var settings = collectSettings();
+            await idbSet('settings', settings);
+            syncToFile(settings);
+        },
+
         /** 从云端拉取设置并合并到本地 */
         pullFromCloud: async function() {
             var cloudSettings = await pullSettingsFromCloud();
             if (cloudSettings && Object.keys(cloudSettings).length > 0) {
+                // 尊重本地用户显式设置：如果本地 purity 与云端不同且本地非默认值，保留本地
+                var localPurity = localStorage.getItem('wp_purity');
+                if (localPurity && cloudSettings.purity && cloudSettings.purity !== localPurity) {
+                    delete cloudSettings.purity;
+                }
                 applySettings(cloudSettings);
                 await idbSet('settings', collectSettings());
                 return true;
