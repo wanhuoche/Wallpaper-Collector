@@ -191,6 +191,7 @@
         D.ratioTags.querySelectorAll('.ratio-tag').forEach(function(t) { t.classList.remove('active'); });
         tag.classList.add('active');
         W.setState('selectedRatio', tag.dataset.ratio);
+        W.storage.saveLocal();
         if (W.state.currentQuery) { W.state.currentPage = 1; W.state.allPhotos = []; W.favorites.switchTab('search'); filterSearch(); }
     });
 
@@ -200,6 +201,7 @@
         D.qualityTags.querySelectorAll('.quality-tag').forEach(function(t) { t.classList.remove('active'); });
         tag.classList.add('active');
         W.setState('selectedQuality', tag.dataset.quality);
+        W.storage.saveLocal();
         if (W.state.currentQuery) { W.state.currentPage = 1; W.state.allPhotos = []; W.favorites.switchTab('search'); filterSearch(); }
     });
 
@@ -495,6 +497,16 @@
         // 同步纯度标签 UI 与状态
         D.purityTags.querySelectorAll('.purity-tag').forEach(function(tag) {
             tag.classList.toggle('active', tag.dataset.purity === W.state.selectedPurity);
+        });
+
+        // 同步比例标签 UI 与状态
+        D.ratioTags.querySelectorAll('.ratio-tag').forEach(function(tag) {
+            tag.classList.toggle('active', tag.dataset.ratio === W.state.selectedRatio);
+        });
+
+        // 同步清晰度标签 UI 与状态
+        D.qualityTags.querySelectorAll('.quality-tag').forEach(function(tag) {
+            tag.classList.toggle('active', tag.dataset.quality === W.state.selectedQuality);
         });
 
         // 同步分类标签 UI 与状态

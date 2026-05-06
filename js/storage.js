@@ -73,6 +73,8 @@
             },
             perPage: W.state.perPage,
             ratioTolerance: W.state.ratioTolerance,
+            selectedRatio: W.state.selectedRatio,
+            selectedQuality: W.state.selectedQuality,
             purity: W.state.selectedPurity,
             categories: W.state.selectedCategories,
         };
@@ -88,6 +90,8 @@
         }
         if (s.perPage) W.setState('perPage', s.perPage);
         if (s.ratioTolerance !== undefined) W.setState('ratioTolerance', s.ratioTolerance);
+        if (s.selectedRatio) W.setState('selectedRatio', s.selectedRatio);
+        if (s.selectedQuality) W.setState('selectedQuality', s.selectedQuality);
         if (s.purity) {
             W.setState('selectedPurity', s.purity);
             localStorage.setItem('wp_purity', s.purity);
@@ -318,6 +322,8 @@
                 apiKeys: { wallhaven: '', pixabay: '', unsplash: '' },
                 perPage: 30,
                 ratioTolerance: 0.10,
+                selectedRatio: 'all',
+                selectedQuality: 'all',
                 selectedPurity: 'safe',
                 selectedCategories: ['General', 'Anime', 'People'],
             });
