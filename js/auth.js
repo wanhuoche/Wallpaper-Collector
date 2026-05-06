@@ -108,12 +108,13 @@
         });
     }
 
-    function logout() {
+    async function logout() {
         clearToken();
         localStorage.removeItem('wp_favorites');
         W.state.user = null;
         W.state.favorites = [];
         updateNavUser();
+        await W.storage.resetSettings();
         window.location.href = 'login.html';
     }
 

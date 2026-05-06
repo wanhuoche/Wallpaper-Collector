@@ -48,6 +48,17 @@
         });
     }
 
+    function idbDel(key) {
+        return openDB().then(function(db) {
+            return new Promise(function(resolve, reject) {
+                var tx = db.transaction(STORE, 'readwrite');
+                var req = tx.objectStore(STORE).delete(key);
+                req.onsuccess = function() { resolve(); };
+                req.onerror = function(e) { reject(e.target.error); };
+            });
+        });
+    }
+
     // ═══════════════════════════════════════
     //  设置收集 / 应用
     // ═══════════════════════════════════════
@@ -297,6 +308,24 @@
             var settings = collectSettings();
             await idbSet('settings', settings);
             syncToFile(settings);
+        },
+
+        /** 退出登录时清空设置 */
+        resetSettings: async function() {
+            // 重置 state 到默认值
+            W.state.source = 'wallhaven';
+            W.state.apiKeys = { wallhaven: '', pixabay: '', unsplash: '' };
+            W.state.perPage = 30;
+            W.state.ratioTolerance = 0.10;
+            W.state.selectedPurity = 'safe';
+            W.state.selectedCategories = ['General', 'Anime', 'People'];
+
+            // 清除持久化数据
+            try { await idbDel('settings'); } catch(e) {}
+            localStorage.removeItem('wp_purity');
+            localStorage.removeItem('wp_api_wallhaven');
+            localStorage.removeItem('wp_api_pixabay');
+            localStorage.removeItem('wp_api_unsplash');
         },
 
         /** 从云端拉取设置并合并到本地 */
