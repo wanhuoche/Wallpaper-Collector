@@ -46,6 +46,20 @@
         });
     }
 
+    // 单向推送本地收藏到云端，不覆盖本地状态
+    function pushFavorites() {
+        var token = W.auth && W.auth.getToken ? W.auth.getToken() : null;
+        if (!token) return Promise.resolve();
+
+        return cloudFetch('/api/auth/favorites/sync', {
+            method: 'POST',
+            body: { favorites: W.state.favorites }
+        }).catch(function(err) {
+            console.warn('收藏推送失败:', err.message);
+        });
+    }
+
+    // 双向同步：推送本地，用服务端合并结果覆盖本地（仅 init / pullFromCloud 时调用）
     function syncWithCloud() {
         var token = W.auth && W.auth.getToken ? W.auth.getToken() : null;
         if (!token) return Promise.resolve();
@@ -147,8 +161,8 @@
         W.state.favorites = list;
         save(list);
 
-        // 云端同步
-        syncWithCloud();
+        // 单向推送，不覆盖本地（防止服务端返回旧数据把删除加回去）
+        pushFavorites();
 
         return added;
     }
