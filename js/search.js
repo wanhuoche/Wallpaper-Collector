@@ -693,7 +693,9 @@
             W.dom.resultsCount.textContent = countMsg;
 
             // Auto-fill: 首屏过滤后结果不足一页，自动补拉（最多 5 页）
-            if (W.state.currentPage === 1
+            W.state.isLoading = false;
+            var _filling = (W.state._autoFillCount || 0) > 0;
+            if ((W.state.currentPage === 1 || _filling)
                 && W.state.allPhotos.length > 0
                 && W.state.allPhotos.length < W.state.perPage
                 && rawCount >= W.state.perPage
