@@ -422,6 +422,8 @@
 
     // ---- 快捷键 ----
     document.addEventListener('keydown', function(e) {
+        var modalOpen = D.modalOverlay.style.display === 'flex';
+
         if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
             e.preventDefault();
             D.searchInput.focus();
@@ -430,7 +432,49 @@
             e.preventDefault();
             openSettings();
         }
+        if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
+            e.preventDefault();
+            if (modalOpen && W.state.modalPhoto) W.downloadPhoto(W.state.modalPhoto);
+        }
+        if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+            e.preventDefault();
+            if (modalOpen && W.state.modalPhoto) {
+                var photo = W.state.modalPhoto;
+                W.favorites.toggle(photo, photo.source || W.state.source);
+                W.favorites.updateModalFavButton();
+                W.favorites.updateCount();
+                if (W.state.activeTab === 'favorites') W.favorites.render();
+                else W.favorites.updateSearchCardFavButtons();
+            }
+        }
+        if (e.key === '?' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+            e.preventDefault();
+            toggleShortcuts();
+        }
     });
+
+    // ---- 快捷键面板 ----
+    var shortcutsToggle = document.getElementById('shortcutsToggle');
+    var shortcutsPanel = document.getElementById('shortcutsPanel');
+
+    function toggleShortcuts() {
+        var show = shortcutsPanel.style.display === 'none';
+        shortcutsPanel.style.display = show ? 'block' : 'none';
+    }
+
+    if (shortcutsToggle) {
+        shortcutsToggle.addEventListener('click', function(e) {
+            e.stopPropagation();
+            toggleShortcuts();
+        });
+        document.addEventListener('click', function(e) {
+            if (shortcutsPanel.style.display === 'block'
+                && !shortcutsPanel.contains(e.target)
+                && e.target !== shortcutsToggle) {
+                shortcutsPanel.style.display = 'none';
+            }
+        });
+    }
 
     // ---- 初始化（异步加载存储）----
     (async function init() {
