@@ -92,8 +92,10 @@ function applySettings(s) {
     if (s.selectedRatio) setState('selectedRatio', s.selectedRatio);
     if (s.selectedQuality) setState('selectedQuality', s.selectedQuality);
     if (s.purity) {
-        setState('selectedPurity', s.purity);
-        localStorage.setItem('wp_purity', s.purity);
+        // migrate legacy 'safe' → 'sketchy'
+        var purity = s.purity === 'safe' ? 'sketchy' : s.purity;
+        setState('selectedPurity', purity);
+        localStorage.setItem('wp_purity', purity);
     }
     if (s.categories && Array.isArray(s.categories)) {
         setState('selectedCategories', s.categories);
@@ -115,7 +117,7 @@ function loadFromLocalStorage() {
         apiKeys: { wallhaven: keyW || '', pixabay: keyP || '', unsplash: keyU || '' },
         perPage: parseInt(localStorage.getItem('wp_per_page') || '30'),
         ratioTolerance: parseFloat(localStorage.getItem('wp_ratio_tolerance') || '0.10'),
-        purity: localStorage.getItem('wp_purity') || 'safe',
+        purity: localStorage.getItem('wp_purity') || 'sfw',
     };
     localStorage.removeItem('wp_api_wallhaven');
     localStorage.removeItem('wp_api_pixabay');
@@ -317,7 +319,7 @@ export const storage = {
             ratioTolerance: 0.10,
             selectedRatio: 'all',
             selectedQuality: 'all',
-            selectedPurity: 'safe',
+            selectedPurity: 'sfw',
             selectedCategories: ['General', 'Anime', 'People'],
         });
 

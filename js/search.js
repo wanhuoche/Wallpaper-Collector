@@ -245,9 +245,9 @@ function filterByRatio(photos) {
 
 function filterByPurity(photos) {
     if (W.state.selectedPurity === 'all') return photos;
-    return photos.filter(function(p) {
-        return p.purity !== 'nsfw';
-    });
+    if (W.state.selectedPurity === 'sfw') return photos.filter(function(p) { return p.purity === 'sfw'; });
+    // 'sketchy' or legacy 'safe': allow sfw + sketchy, filter out nsfw
+    return photos.filter(function(p) { return p.purity !== 'nsfw'; });
 }
 
 function getCategoryBitmask() {
@@ -282,7 +282,53 @@ function filterByQuality(photos) {
     });
 }
 
+// ── 翻译缓存 ──
+var TRANS_CACHE_KEY = 'wp_trans_cache';
+var MAX_CACHE_SIZE = 200;
+var transCache = loadTransCache();
+
+function loadTransCache() {
+    try {
+        var raw = localStorage.getItem(TRANS_CACHE_KEY);
+        if (raw) {
+            var entries = JSON.parse(raw);
+            return new Map(entries);
+        }
+    } catch (e) {}
+    return new Map();
+}
+
+function saveTransCache() {
+    try {
+        var entries = Array.from(transCache);
+        localStorage.setItem(TRANS_CACHE_KEY, JSON.stringify(entries));
+    } catch (e) {}
+}
+
+function cacheGet(key) {
+    if (!transCache.has(key)) return null;
+    var value = transCache.get(key);
+    // LRU: move to end
+    transCache.delete(key);
+    transCache.set(key, value);
+    return value;
+}
+
+function cacheSet(key, value) {
+    if (transCache.has(key)) transCache.delete(key);
+    else if (transCache.size >= MAX_CACHE_SIZE) {
+        // delete oldest (first) entry
+        var first = transCache.keys().next().value;
+        transCache.delete(first);
+    }
+    transCache.set(key, value);
+    saveTransCache();
+}
+
 async function translateToEnglish(text) {
+    var cached = cacheGet(text);
+    if (cached) return cached;
+
     try {
         var resp = await fetch(
             'https://api.mymemory.translated.net/get?q=' + encodeURIComponent(text) + '&langpair=zh|en'
@@ -290,11 +336,16 @@ async function translateToEnglish(text) {
         var data = await resp.json();
         if (data.responseStatus === 200 && data.responseData && data.responseData.translatedText) {
             var translated = data.responseData.translatedText;
-            if (translated.toLowerCase() !== text.toLowerCase()) return translated;
+            if (translated.toLowerCase() !== text.toLowerCase()) {
+                cacheSet(text, translated);
+                return translated;
+            }
         }
     } catch (e) {
         console.warn('翻译失败:', e);
     }
+    // cache negative results too (avoid repeated failed API calls for same text)
+    cacheSet(text, text);
     return text;
 }
 
@@ -614,8 +665,9 @@ async function doSearch() {
         W.dom.resultsCount.dataset.usage = '';
         var ratioParam = config.mapRatio(W.state.selectedRatio);
         var orientation = getOrientationForUnsplash(W.state.selectedRatio);
+        var purityMap = { sfw: '100', sketchy: '110', safe: '110', all: '111' };
         var purityParam = W.state.source === 'wallhaven'
-            ? (W.state.selectedPurity === 'safe' ? '110' : '111')
+            ? (purityMap[W.state.selectedPurity] || '110')
             : '';
 
         var params;

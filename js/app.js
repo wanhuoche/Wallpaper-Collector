@@ -12,7 +12,7 @@ W.state = {
     ratioTolerance: 0.10,
     selectedRatio: 'all',
     selectedQuality: 'all',
-    selectedPurity: 'safe',
+    selectedPurity: 'sfw',
     selectedCategories: ['General', 'Anime', 'People'],
     currentQuery: '',
     currentPage: 1,
