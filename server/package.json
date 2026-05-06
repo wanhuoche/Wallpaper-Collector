@@ -4,8 +4,8 @@
   "description": "壁纸收集器后端 - 认证服务",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node --watch server.js"
+    "start": "node --env-file=.env server.js",
+    "dev": "node --watch --env-file=.env server.js"
   },
   "dependencies": {
     "better-sqlite3": "^11.0.0",

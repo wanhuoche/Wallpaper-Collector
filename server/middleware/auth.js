@@ -1,6 +1,9 @@
 const jwt = require('jsonwebtoken');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'wallpaper-collector-secret-key-change-in-production';
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  throw new Error('FATAL: 环境变量 JWT_SECRET 未设置，服务拒绝启动。请在 .env 或启动命令中设置 JWT_SECRET。');
+}
 const JWT_EXPIRES_IN = '7d';
 
 function signToken(userId) {

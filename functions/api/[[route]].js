@@ -1,7 +1,19 @@
 // 零依赖 — 纯 Web Crypto API 实现
 // bcrypt → PBKDF2 + SHA-256  |  JWT → HMAC-SHA256
 
-const SECRET_RAW = new TextEncoder().encode('wallpaper-collector-secret-key-change-me');
+let _secretRaw = null;
+
+function getSecret() {
+  if (!_secretRaw) throw new Error('FATAL: JWT_SECRET 环境变量未设置，请在 Cloudflare 控制台配置 JWT_SECRET。');
+  return _secretRaw;
+}
+
+function setSecret(env) {
+  if (_secretRaw) return; // 仅首次初始化
+  const secret = env.JWT_SECRET;
+  if (!secret) throw new Error('FATAL: JWT_SECRET 环境变量未设置，请在 Cloudflare 控制台配置 JWT_SECRET。');
+  _secretRaw = new TextEncoder().encode(secret);
+}
 const PBKDF2_ITERATIONS = 100000;  // Workers 上限
 const JWT_EXPIRES = 7 * 24 * 60 * 60; // 7 天
 
@@ -53,7 +65,7 @@ async function signToken(userId) {
   const payload = { userId, iat: now, exp: now + JWT_EXPIRES };
 
   const key = await crypto.subtle.importKey(
-    'raw', SECRET_RAW, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
+    'raw', getSecret(), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
   );
   const data = base64url(JSON.stringify(header)) + '.' + base64url(JSON.stringify(payload));
   const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(data));
@@ -65,7 +77,7 @@ async function verifyToken(token) {
   if (parts.length !== 3) throw new Error('invalid token');
 
   const key = await crypto.subtle.importKey(
-    'raw', SECRET_RAW, { name: 'HMAC', hash: 'SHA-256' }, false, ['verify']
+    'raw', getSecret(), { name: 'HMAC', hash: 'SHA-256' }, false, ['verify']
   );
   const data = parts[0] + '.' + parts[1];
   const sig = new Uint8Array([...base64urlDecode(parts[2])].map(c => c.charCodeAt(0)));
@@ -571,6 +583,10 @@ const ROUTES = {
 
 export async function onRequest(context) {
   const { request, env } = context;
+
+  // 懒初始化 JWT Secret（仅首次请求）
+  if (!_secretRaw) setSecret(env);
+
   const url = new URL(request.url);
   let path = url.pathname.replace('/api/auth', '');
 

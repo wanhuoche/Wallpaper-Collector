@@ -1,5 +1,5 @@
 import bcrypt from 'bcryptjs';
-import { signToken, verifyToken, extractToken } from './jwt.js';
+import { setSecret, signToken, verifyToken, extractToken } from './jwt.js';
 
 const BCRYPT_ROUNDS = 12;
 
@@ -205,6 +205,9 @@ const routes = [
 
 export default {
   async fetch(request, env) {
+    // 懒初始化 JWT Secret（仅首次请求）
+    setSecret(env);
+
     const url = new URL(request.url);
     const { pathname } = url;
 
