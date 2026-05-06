@@ -526,7 +526,7 @@
 
         var config = W.getCurrentConfig();
         var quality = parseQuality();
-        var useGuestProxy = !W.getCurrentApiKey() || !W.state.user;
+        var useGuestProxy = !W.getCurrentApiKey() && !W.state.user;
 
         var parsed;
         if (useGuestProxy) {
@@ -689,6 +689,8 @@
             var countMsg = '找到 ' + parsed.total + ' 张，已加载 ' + W.state.allPhotos.length + ' 张（"' + W.state.currentQuery + '" · ' + (W.state.selectedRatio === 'all' ? '全部比例' : W.state.selectedRatio) + '）';
             if (W._guestUsage && W._guestUsage.remaining !== undefined) {
                 countMsg += ' · 今日剩余 ' + W._guestUsage.remaining + ' / ' + W._guestUsage.limit + ' 次';
+            } else if (!useGuestProxy) {
+                countMsg += ' · 使用个人 API Key';
             }
             W.dom.resultsCount.textContent = countMsg;
 

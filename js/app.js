@@ -475,6 +475,10 @@
 
         updateSourceIndicator();
         updateStorageStatus();
-        D.resultsCount.textContent = '输入关键词开始搜索 · 当前图源：' + W.getCurrentConfig().name;
+        var initMsg = '输入关键词开始搜索 · 当前图源：' + W.getCurrentConfig().name;
+        if (W.getCurrentApiKey()) {
+            initMsg += '（已填写个人 API Key，不消耗次数）';
+        }
+        D.resultsCount.textContent = initMsg;
     })();
 })();

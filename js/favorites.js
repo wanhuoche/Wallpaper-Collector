@@ -310,7 +310,9 @@
             } else if (!W.getCurrentApiKey()) {
                 W.dom.resultsCount.textContent = '👈 请点击右上角 ⚙ 选择图源并填入 API Key（免费注册获取）';
             } else {
-                W.dom.resultsCount.textContent = '输入关键词开始搜索 · 当前图源：' + W.getCurrentConfig().name;
+                var favInitMsg = '输入关键词开始搜索 · 当前图源：' + W.getCurrentConfig().name;
+                if (!W.state.user) favInitMsg += '（已填写个人 API Key，不消耗次数）';
+                W.dom.resultsCount.textContent = favInitMsg;
             }
         }
     }
