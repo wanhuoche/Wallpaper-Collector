@@ -2,40 +2,22 @@ import { setState } from './state.js';
 
 const W = window.WallpaperApp;
 const STORAGE_KEY = 'wp_favorites';
-const DELETED_KEY = 'wp_fav_deleted';
+const TOMBSTONE_TTL = 30 * 24 * 60 * 60 * 1000; // 30 天后清理墓碑
 
-// ── 删除追踪（防推送失败时云端旧数据回流）──
+// ── 墓碑清理 ──
 
-function loadDeleted() {
-    try {
-        var data = localStorage.getItem(DELETED_KEY);
-        return data ? JSON.parse(data) : {};
-    } catch (e) { return {}; }
-}
-
-function recordDelete(id, source) {
-    var del = loadDeleted();
-    del[id + '_' + source] = Date.now();
-    try { localStorage.setItem(DELETED_KEY, JSON.stringify(del)); } catch (e) {}
-}
-
-function clearDeleted() {
-    try { localStorage.removeItem(DELETED_KEY); } catch (e) {}
-}
-
-function filterDeleted(items) {
-    var del = loadDeleted();
-    if (Object.keys(del).length === 0) return items;
-    return items.filter(function(f) {
-        var key = (f.id || '') + '_' + (f.source || '');
-        return !del[key];
-    });
+function cleanTombstones(list) {
+  var cutoff = Date.now() - TOMBSTONE_TTL;
+  return list.filter(function(f) {
+    return !f.deletedAt || f.deletedAt > cutoff;
+  });
 }
 
 function load() {
     try {
         var data = localStorage.getItem(STORAGE_KEY);
-        return data ? JSON.parse(data) : [];
+        var list = data ? JSON.parse(data) : [];
+        return cleanTombstones(list);
     } catch (e) {
         return [];
     }
@@ -82,8 +64,6 @@ function pushFavorites() {
     return cloudFetch('/api/auth/favorites/sync', {
         method: 'POST',
         body: { favorites: W.state.favorites }
-    }).then(function() {
-        clearDeleted(); // 推送成功，云端已是权威状态
     }).catch(function(err) {
         console.warn('收藏推送失败:', err.message);
     });
@@ -114,17 +94,14 @@ function syncWithCloud() {
 function mergeLocal(cloudFavs) {
     if (!cloudFavs || cloudFavs.length === 0) return false;
 
-    // 先过滤掉本地记录为已删除的项（推送未完成的情况下防回流）
-    var filtered = filterDeleted(cloudFavs);
-    if (filtered.length === 0) return false;
-
     var cloudMap = {};
     var maxCloudSavedAt = 0;
-    filtered.forEach(function(f) {
+    cloudFavs.forEach(function(f) {
         var key = f.full || f.medium || f.thumb;
         if (key) {
             cloudMap[key] = f;
-            if ((f.savedAt || 0) > maxCloudSavedAt) maxCloudSavedAt = f.savedAt || 0;
+            var ct = Math.max(f.savedAt || 0, f.deletedAt || 0);
+            if (ct > maxCloudSavedAt) maxCloudSavedAt = ct;
         }
     });
 
@@ -179,7 +156,7 @@ function pullFromCloud() {
 
 function isFavorite(id, source) {
     return W.state.favorites.some(function(f) {
-        return String(f.id) === String(id) && f.source === source;
+        return String(f.id) === String(id) && f.source === source && !f.deletedAt;
     });
 }
 
@@ -188,34 +165,47 @@ function toggle(photo, source) {
     var list = W.state.favorites;
     var idx = -1;
     for (var i = 0; i < list.length; i++) {
-        if (String(list[i].id) === String(photo.id) && list[i].source === source) {
+        if (String(list[i].id) === String(photo.id) && list[i].source === source && !list[i].deletedAt) {
             idx = i;
             break;
         }
     }
     var added;
     if (idx >= 0) {
-        list.splice(idx, 1);
-        recordDelete(photo.id, source);  // 记下删除，防止推送未完成时云端回流
+        list[idx].deletedAt = Date.now();  // 墓碑：标记删除而非删除，跨设备同步可见
         added = false;
     } else {
-        var fav = {};
-        Object.keys(photo).forEach(function(k) { fav[k] = photo[k]; });
-        fav.source = source;
-        fav.savedAt = Date.now();
-        list.unshift(fav);
+        // 检查是否之前删过（墓碑还在列表中），有则复活
+        var deadIdx = -1;
+        for (var j = 0; j < list.length; j++) {
+            if (String(list[j].id) === String(photo.id) && list[j].source === source && list[j].deletedAt) {
+                deadIdx = j;
+                break;
+            }
+        }
+        if (deadIdx >= 0) {
+            delete list[deadIdx].deletedAt;
+            list[deadIdx].savedAt = Date.now();
+        } else {
+            var fav = {};
+            Object.keys(photo).forEach(function(k) { fav[k] = photo[k]; });
+            fav.source = source;
+            fav.savedAt = Date.now();
+            list.unshift(fav);
+        }
         added = true;
     }
     setState('favorites', list);
     save(list);
 
-    pushFavorites(); // 异步推送，推送成功后 clearDeleted()
+    pushFavorites();
 
     return added;
 }
 
 function render() {
-    var list = W.state.favorites;
+    var list = W.state.favorites.filter(function(f) { return !f.deletedAt; });
+    W.state._displayFavorites = list;
     if (list.length === 0) {
         W.dom.resultsGrid.innerHTML =
             '<div style="grid-column:1/-1;text-align:center;padding:60px 20px;">'
@@ -258,14 +248,14 @@ function render() {
     W.dom.resultsGrid.querySelectorAll('.card-download').forEach(function(btn) {
         btn.addEventListener('click', function(e) {
             e.stopPropagation();
-            W.downloadPhoto(W.state.favorites[parseInt(btn.dataset.favIndex)]);
+            W.downloadPhoto(W.state._displayFavorites[parseInt(btn.dataset.favIndex)]);
         });
     });
     W.dom.resultsGrid.querySelectorAll('.card-fav').forEach(function(btn) {
         btn.addEventListener('click', function(e) {
             e.stopPropagation();
             var idx = parseInt(btn.dataset.favIndex);
-            var photo = W.state.favorites[idx];
+            var photo = W.state._displayFavorites[idx];
             toggle(photo, photo.source);
             updateCount();
             render();
@@ -277,21 +267,22 @@ function render() {
 }
 
 function openFavPreview(idx) {
-    var photo = W.state.favorites[idx];
+    var list = W.state._displayFavorites || W.state.favorites.filter(function(f) { return !f.deletedAt; });
+    var photo = list[idx];
     if (!photo) return;
     W.resetPreviewZoom(false);
     W.state.modalIndex = idx;
     W.state.modalSource = 'favorites';
     W.state.modalPhoto = photo;
     W.loadModalImage(photo);
-    W.dom.modalInfo.textContent = (idx + 1) + ' / ' + W.state.favorites.length + '  ' + photo.width + '\xD7' + photo.height + ' \xB7 ' + (photo.photographer || '');
+    W.dom.modalInfo.textContent = (idx + 1) + ' / ' + list.length + '  ' + photo.width + '\xD7' + photo.height + ' \xB7 ' + (photo.photographer || '');
     W.dom.modalOverlay.style.display = 'flex';
     document.body.style.overflow = 'hidden';
     updateModalFavButton();
 }
 
 function updateCount() {
-    var count = W.state.favorites.length;
+    var count = W.state.favorites.filter(function(f) { return !f.deletedAt; }).length;
     var el = W.dom.favCount;
     if (el) {
         el.textContent = count;

@@ -238,30 +238,53 @@ async function handleSyncFavorites(request, env) {
   catch { return json({ error: '登录已过期' }, 401); }
 
   const body = await request.json();
-  const localFavs = body.favorites || [];
+  const incoming = body.favorites || [];
   const now = new Date().toISOString();
 
-  // 先删后插：客户端发送完整列表，服务端替换式写入（支持删除同步）
+  // 加载云端现有收藏
+  const existing = await env.DB.prepare(
+    'SELECT photo_id, photo_data FROM favorites WHERE user_id = ?'
+  ).bind(userId).all();
+
+  const dbMap = {};
+  existing.results.forEach(row => {
+    dbMap[row.photo_id] = JSON.parse(row.photo_data);
+  });
+
+  // 逐条合并：按 photo_id 匹配，比较 savedAt/deletedAt，保留较新的
+  incoming.forEach(fav => {
+    const photoId = fav.full || fav.medium || fav.thumb;
+    if (!photoId) return;
+    const incomingTime = Math.max(fav.savedAt || 0, fav.deletedAt || 0);
+    const existingFav = dbMap[photoId];
+    if (existingFav) {
+      const existingTime = Math.max(existingFav.savedAt || 0, existingFav.deletedAt || 0);
+      if (incomingTime > existingTime) dbMap[photoId] = fav;
+    } else {
+      dbMap[photoId] = fav;
+    }
+  });
+
+  // 写入合并结果
   await env.DB.prepare('DELETE FROM favorites WHERE user_id = ?').bind(userId).run();
 
-  if (localFavs.length > 0) {
+  const allFavs = Object.values(dbMap);
+  if (allFavs.length > 0) {
     const insert = env.DB.prepare(
       'INSERT INTO favorites (user_id, photo_id, photo_data, created_at) VALUES (?, ?, ?, ?)'
     );
-    const batch = [];
-    localFavs.forEach(fav => {
+    const batch = allFavs.map(fav => {
       const photoId = fav.full || fav.medium || fav.thumb;
-      if (!photoId) return;
-      batch.push(insert.bind(userId, photoId, JSON.stringify(fav), fav.savedAt ? new Date(fav.savedAt).toISOString() : now));
+      const ts = Math.max(fav.savedAt || 0, fav.deletedAt || 0);
+      return insert.bind(userId, photoId, JSON.stringify(fav), ts ? new Date(ts).toISOString() : now);
     });
 
     for (let i = 0; i < batch.length; i += 50) {
-      const chunk = batch.slice(i, i + 50);
-      await env.DB.batch(chunk);
+      await env.DB.batch(batch.slice(i, i + 50));
     }
   }
 
-  return json({ favorites: localFavs });
+  return json({ favorites: allFavs });
 }
 
 // ═══════════════════════════════════════

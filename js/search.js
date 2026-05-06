@@ -488,7 +488,7 @@ function closePreview() {
 W.closePreview = closePreview;
 
 function updateNavButtons() {
-    var list = W.state.modalSource === 'favorites' ? W.state.favorites : W.state.photos;
+    var list = W.state.modalSource === 'favorites' ? (W.state._displayFavorites || W.state.favorites.filter(function(f){return !f.deletedAt;})) : W.state.photos;
     var idx = W.state.modalIndex;
     var prev = document.getElementById('modalPrev');
     var next = document.getElementById('modalNext');
@@ -499,7 +499,7 @@ function updateNavButtons() {
 function navigatePreview(direction) {
     if (!W.state.modalPhoto) return;
     resetZoom(false);
-    var list = W.state.modalSource === 'favorites' ? W.state.favorites : (W.state._displayPhotos || W.state.photos);
+    var list = W.state.modalSource === 'favorites' ? (W.state._displayFavorites || W.state.favorites.filter(function(f){return !f.deletedAt;})) : (W.state._displayPhotos || W.state.photos);
     var newIdx = W.state.modalIndex + direction;
     if (newIdx < 0 || newIdx >= list.length) return;
     var photo = list[newIdx];
