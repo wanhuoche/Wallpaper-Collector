@@ -328,7 +328,8 @@ function cacheSet(key, value) {
 
 async function translateToEnglish(text) {
     var cached = cacheGet(text);
-    if (cached) return cached;
+    if (cached) { console.log('[翻译缓存] 命中 — "' + text + '" → "' + cached + '"'); return cached; }
+    console.log('[翻译缓存] 未命中 — "' + text + '" 需调 API');
 
     try {
         var resp = await fetch(
