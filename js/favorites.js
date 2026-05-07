@@ -530,48 +530,79 @@ function exportHTML() {
 }
 
 function importFavorites(imported) {
-    // 双重去重：URL 全字段 + (id, source) 组合键
-    var existingKeys = {};
-    W.state.favorites.forEach(function(f) {
+    // 建立现有收藏的查找索引：key → index in W.state.favorites
+    var existingIdx = {};  // 'id|source' → index
+    var existingUrlIdx = {};  // URL → index (fallback)
+    W.state.favorites.forEach(function(f, i) {
         if (f.deletedAt) return;
+        if (f.id && f.source) existingIdx[f.id + '|' + f.source] = i;
         [f.full, f.medium, f.thumb, f.preview].forEach(function(u) {
-            if (u) existingKeys[u] = true;
+            if (u && !existingUrlIdx[u]) existingUrlIdx[u] = i;
         });
-        if (f.id && f.source) existingKeys['id:' + f.id + '|' + f.source] = true;
     });
 
     var now = Date.now();
     var added = 0;
+    var merged = 0;
     imported.forEach(function(item) {
-        if (!item.full && !item.medium && !item.thumb) return;
-        // 任一 URL 命中即判重
-        if ([item.full, item.medium, item.thumb, item.preview].some(function(u) { return u && existingKeys[u]; })) return;
-        // id+source 命中即判重
-        if (item.id && item.source && existingKeys['id:' + item.id + '|' + item.source]) return;
-        // 登记所有标识，防止导入列表内部重复
-        [item.full, item.medium, item.thumb, item.preview].forEach(function(u) {
-            if (u) existingKeys[u] = true;
-        });
-        if (item.id && item.source) existingKeys['id:' + item.id + '|' + item.source] = true;
-        W.state.favorites.push({
-            id: item.id || (item.thumb || '').slice(-16),
-            width: item.width || 0, height: item.height || 0,
-            full: item.full || '', medium: item.medium || '', thumb: item.thumb || '',
-            preview: item.preview || '', alt: item.alt || '',
-            purity: item.purity || 'sfw', photographer: item.photographer || '',
-            sourceUrl: item.sourceUrl || '', source: item.source || '',
-            savedAt: item.savedAt || now, deletedAt: 0,
-            collectionIds: (item.collectionIds && item.collectionIds.length > 0) ? item.collectionIds : ['__default__']
-        });
-        added++;
+        if (!item.full && !item.medium && !item.thumb && !item.preview) return;
+
+        // 查找是否已存在
+        var matchIdx = -1;
+        if (item.id && item.source && existingIdx[item.id + '|' + item.source] !== undefined) {
+            matchIdx = existingIdx[item.id + '|' + item.source];
+        } else {
+            [item.full, item.medium, item.thumb, item.preview].some(function(u) {
+                if (u && existingUrlIdx[u] !== undefined) {
+                    matchIdx = existingUrlIdx[u];
+                    return true;
+                }
+            });
+        }
+
+        if (matchIdx >= 0) {
+            // 已存在 → 合并 collectionIds
+            var existing = W.state.favorites[matchIdx];
+            // 如果被墓碑过，复活
+            if (existing.deletedAt) { delete existing.deletedAt; existing.savedAt = now; }
+            var newCols = (item.collectionIds && item.collectionIds.length > 0) ? item.collectionIds : ['__default__'];
+            var curCols = existing.collectionIds || ['__default__'];
+            var changed = false;
+            newCols.forEach(function(cid) {
+                if (curCols.indexOf(cid) < 0) { curCols.push(cid); changed = true; }
+            });
+            if (changed) { existing.collectionIds = curCols; merged++; }
+        } else {
+            // 新图片 → 添加
+            var fav = {
+                id: item.id || (item.thumb || '').slice(-16),
+                width: item.width || 0, height: item.height || 0,
+                full: item.full || '', medium: item.medium || '', thumb: item.thumb || '',
+                preview: item.preview || '', alt: item.alt || '',
+                purity: item.purity || 'sfw', photographer: item.photographer || '',
+                sourceUrl: item.sourceUrl || '', source: item.source || '',
+                savedAt: item.savedAt || now, deletedAt: 0,
+                collectionIds: (item.collectionIds && item.collectionIds.length > 0) ? item.collectionIds : ['__default__']
+            };
+            W.state.favorites.push(fav);
+            var idx = W.state.favorites.length - 1;
+            if (fav.id && fav.source) existingIdx[fav.id + '|' + fav.source] = idx;
+            [fav.full, fav.medium, fav.thumb, fav.preview].forEach(function(u) {
+                if (u && existingUrlIdx[u] === undefined) existingUrlIdx[u] = idx;
+            });
+            added++;
+        }
     });
 
-    if (added > 0) {
+    if (added > 0 || merged > 0) {
         save(W.state.favorites);
         updateCount();
         updateSearchCardFavButtons();
         if (W.state.user) pushFavorites();
-        W.showToast('已导入 ' + added + ' 张，跳过 ' + (imported.length - added) + ' 张重复 ✓', 'success');
+        var parts = [];
+        if (added > 0) parts.push('新增 ' + added + ' 张');
+        if (merged > 0) parts.push('合并 ' + merged + ' 张到收藏夹');
+        W.showToast(parts.join('，') + ' ✓', 'success');
     } else {
         W.showToast('没有新图片可导入（全部重复）', '');
     }
