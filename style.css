@@ -197,6 +197,8 @@ body {
 .ms-btn:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
 .ms-btn-primary { background: var(--accent); color: #fff; border-color: var(--accent); }
 .ms-btn-primary:hover { opacity: 0.85; }
+.ms-btn-danger { background: #ff3b30; color: #fff; border-color: #ff3b30; }
+.ms-btn-danger:hover { opacity: 0.85; }
 .ms-count { font-size: 13px; color: var(--text-secondary); font-weight: 500; min-width: 60px; }
 
 /* 卡片勾选框 */

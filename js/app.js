@@ -544,6 +544,29 @@ if (btnBatchDownload) {
     });
 }
 
+// 批量取消收藏
+var btnBatchUnfav = document.getElementById('btnBatchUnfav');
+if (btnBatchUnfav) {
+    btnBatchUnfav.addEventListener('click', function() {
+        if (W.state.selectedPhotos.length === 0) { W.showToast('请先勾选图片', ''); return; }
+        var count = 0;
+        W.state.selectedPhotos.forEach(function(p) {
+            var isFav = W.favorites.isFavorite(p.id, p.source || W.state.source);
+            if (isFav) { W.favorites.toggle(p, p.source || W.state.source); count++; }
+        });
+        if (count > 0) {
+            W.favorites.updateCount();
+            W.showToast('已取消收藏 ' + count + ' 张 ✓', 'success');
+            W.state.selectedPhotos = [];
+            exitMultiSelect();
+            if (W.state.activeTab === 'favorites') W.favorites.render();
+            else W._renderResults();
+        } else {
+            W.showToast('所选图片均未收藏', '');
+        }
+    });
+}
+
 var _batchAbortController = null;
 async function batchDownloadZip(photos) {
     var total = photos.length;
