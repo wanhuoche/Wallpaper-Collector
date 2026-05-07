@@ -468,6 +468,11 @@ body {
     .results-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
     .settings-panel { width: 100%; right: -100%; }
     .modal-overlay { padding: 16px; }
+    .modal-info { padding: 12px 16px; gap: 8px; }
+    .modal-info .info-text { font-size: 12px; }
+    .modal-actions { gap: 8px; }
+    .btn-download-big { font-size: 13px; }
+    .btn-view-original { font-size: 12px; }
 }
 
 /* ═══════════════════════════════════════
@@ -852,6 +857,13 @@ body {
 
     /* 隐藏快捷键按钮（?），触屏上无用 */
     .shortcuts-toggle { display: none; }
+
+    /* 触控目标增大至 44px 以上 */
+    .modal-close { width: 44px; height: 44px; }
+    .modal-fav { width: 44px; height: 44px; }
+    .btn-download-big { height: 44px; padding: 0 28px; }
+    .btn-view-original { height: 44px; padding: 0 22px; }
+    .modal-nav { width: 48px; height: 48px; font-size: 36px; }
 }
 
 @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
