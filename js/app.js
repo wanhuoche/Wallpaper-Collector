@@ -492,14 +492,14 @@ if (multiSelectToggle) {
 var btnSelectAll = document.getElementById('btnSelectAll');
 if (btnSelectAll) {
     btnSelectAll.addEventListener('click', function() {
-        var list = W.state._displayPhotos || W.state.photos;
+        var list = W.state.activeTab === 'favorites' ? (W.state._displayFavorites || []) : (W.state._displayPhotos || W.state.photos || []);
+        if (list.length === 0) return;
         var allChecked = W.state.selectedPhotos.length === list.length;
         if (allChecked) {
             W.state.selectedPhotos = [];
         } else {
             W.state.selectedPhotos = list.slice();
         }
-        // 同步 checkbox 状态
         document.querySelectorAll('.card-check').forEach(function(cb) {
             cb.checked = !allChecked;
         });
