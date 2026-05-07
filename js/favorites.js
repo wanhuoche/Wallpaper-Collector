@@ -530,6 +530,12 @@ function exportHTML() {
 }
 
 function importFavorites(imported) {
+    console.log('[import] 开始导入，JSON 条数:', imported.length, '现有收藏条数:', W.state.favorites.length);
+    // 统计现有非墓碑条数
+    var aliveCount = 0;
+    W.state.favorites.forEach(function(f) { if (!f.deletedAt) aliveCount++; });
+    console.log('[import] 现有非墓碑条数:', aliveCount);
+
     // 建立现有收藏的查找索引：key → index in W.state.favorites
     var existingIdx = {};  // 'id|source' → index
     var existingUrlIdx = {};  // URL → index (fallback)
@@ -540,24 +546,43 @@ function importFavorites(imported) {
             if (u && !existingUrlIdx[u]) existingUrlIdx[u] = i;
         });
     });
+    console.log('[import] id+source key 数量:', Object.keys(existingIdx).length, 'URL key 数量:', Object.keys(existingUrlIdx).length);
+    // 打印前 3 个 key 作为样本
+    var idKeys = Object.keys(existingIdx).slice(0, 3);
+    var urlKeys = Object.keys(existingUrlIdx).slice(0, 3);
+    console.log('[import] id+source 样本:', idKeys, 'URL 样本:', urlKeys);
 
     var now = Date.now();
     var added = 0;
     var merged = 0;
-    imported.forEach(function(item) {
-        if (!item.full && !item.medium && !item.thumb && !item.preview) return;
+    var skippedNoUrl = 0;
+    // 打印第一条导入数据样本
+    if (imported.length > 0) {
+        var s = imported[0];
+        console.log('[import] 第一条JSON样本 id:', s.id, 'source:', s.source, 'full:', (s.full||'').slice(0,60), 'medium:', (s.medium||'').slice(0,60), 'thumb:', (s.thumb||'').slice(0,60), 'collectionIds:', s.collectionIds);
+    }
+    imported.forEach(function(item, itemIdx) {
+        if (!item.full && !item.medium && !item.thumb && !item.preview) { skippedNoUrl++; return; }
 
         // 查找是否已存在
         var matchIdx = -1;
+        var matchType = '';
         if (item.id && item.source && existingIdx[item.id + '|' + item.source] !== undefined) {
             matchIdx = existingIdx[item.id + '|' + item.source];
+            matchType = 'id+source';
         } else {
             [item.full, item.medium, item.thumb, item.preview].some(function(u) {
                 if (u && existingUrlIdx[u] !== undefined) {
                     matchIdx = existingUrlIdx[u];
+                    matchType = 'URL';
                     return true;
                 }
             });
+        }
+
+        // 调试：打印前 5 条匹配情况
+        if (itemIdx < 5) {
+            console.log('[import] 第' + itemIdx + '条: id=' + item.id + ' source=' + item.source + ' matchIdx=' + matchIdx + ' matchType=' + matchType);
         }
 
         if (matchIdx >= 0) {
@@ -594,6 +619,7 @@ function importFavorites(imported) {
         }
     });
 
+    console.log('[import] 结果: added=' + added + ' merged=' + merged + ' skippedNoUrl=' + skippedNoUrl);
     if (added > 0 || merged > 0) {
         save(W.state.favorites);
         updateCount();
