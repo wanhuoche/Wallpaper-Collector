@@ -839,5 +839,20 @@ body {
     color: #bbb;
 }
 
+/* ── 触屏设备适配 ── */
+@media (hover: none) and (pointer: coarse) {
+    /* 禁用卡片 hover 效果，防止点击时闪现 overlay */
+    .image-card:hover { transform: none; box-shadow: var(--shadow); }
+    .image-card:hover img { transform: none; }
+    .image-card:hover .card-overlay,
+    .image-card:hover .card-badge { opacity: 0; }
+
+    /* 隐藏卡片右下角操作按钮 — 预览弹窗内已有收藏和下载 */
+    .card-actions { display: none; }
+
+    /* 隐藏快捷键按钮（?），触屏上无用 */
+    .shortcuts-toggle { display: none; }
+}
+
 @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
 [data-theme="dark"] .dropdown-divider { background: rgba(255,255,255,0.1); }
