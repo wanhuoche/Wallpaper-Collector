@@ -404,6 +404,8 @@ D.modalFav.addEventListener('click', function() {
     W.favorites.updateCount();
     if (W.state.activeTab === 'favorites') {
         W.favorites.render();
+    } else if (W.state.hideFaved) {
+        W._renderResults();
     } else {
         W.favorites.updateSearchCardFavButtons();
     }
@@ -455,6 +457,7 @@ document.addEventListener('keydown', function(e) {
             W.favorites.updateModalFavButton();
             W.favorites.updateCount();
             if (W.state.activeTab === 'favorites') W.favorites.render();
+            else if (W.state.hideFaved) W._renderResults();
             else W.favorites.updateSearchCardFavButtons();
         }
     }
