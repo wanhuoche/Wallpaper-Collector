@@ -615,11 +615,9 @@ function exportHTML() {
 }
 
 function importFavorites(imported) {
-    console.log('[import] 开始导入，JSON 条数:', imported.length, '现有收藏条数:', W.state.favorites.length);
-    // 统计现有非墓碑条数
-    var aliveCount = 0;
-    W.state.favorites.forEach(function(f) { if (!f.deletedAt) aliveCount++; });
-    console.log('[import] 现有非墓碑条数:', aliveCount);
+    // 如果当前正在查看某个具体收藏夹，导入项自动归入该收藏夹
+    var targetCol = W.state.activeCollection;
+    if (targetCol === '__all__') targetCol = null;
 
     // 建立现有收藏的查找索引：key → index in W.state.favorites
     var existingIdx = {};  // 'id|source' → index
@@ -631,21 +629,11 @@ function importFavorites(imported) {
             if (u && !existingUrlIdx[u]) existingUrlIdx[u] = i;
         });
     });
-    console.log('[import] id+source key 数量:', Object.keys(existingIdx).length, 'URL key 数量:', Object.keys(existingUrlIdx).length);
-    // 打印前 3 个 key 作为样本
-    var idKeys = Object.keys(existingIdx).slice(0, 3);
-    var urlKeys = Object.keys(existingUrlIdx).slice(0, 3);
-    console.log('[import] id+source 样本:', idKeys, 'URL 样本:', urlKeys);
 
     var now = Date.now();
     var added = 0;
     var merged = 0;
     var skippedNoUrl = 0;
-    // 打印第一条导入数据样本
-    if (imported.length > 0) {
-        var s = imported[0];
-        console.log('[import] 第一条JSON样本 id:', s.id, 'source:', s.source, 'full:', (s.full||'').slice(0,60), 'medium:', (s.medium||'').slice(0,60), 'thumb:', (s.thumb||'').slice(0,60), 'collectionIds:', s.collectionIds);
-    }
     imported.forEach(function(item, itemIdx) {
         if (!item.full && !item.medium && !item.thumb && !item.preview) { skippedNoUrl++; return; }
 
@@ -665,17 +653,13 @@ function importFavorites(imported) {
             });
         }
 
-        // 调试：打印前 5 条匹配情况
-        if (itemIdx < 5) {
-            console.log('[import] 第' + itemIdx + '条: id=' + item.id + ' source=' + item.source + ' matchIdx=' + matchIdx + ' matchType=' + matchType);
-        }
-
         if (matchIdx >= 0) {
             // 已存在 → 合并 collectionIds
             var existing = W.state.favorites[matchIdx];
             // 如果被墓碑过，复活
             if (existing.deletedAt) { delete existing.deletedAt; existing.savedAt = now; }
             var newCols = (item.collectionIds && item.collectionIds.length > 0) ? item.collectionIds : ['__default__'];
+            if (targetCol && newCols.indexOf(targetCol) < 0) newCols.push(targetCol);
             var curCols = existing.collectionIds || ['__default__'];
             var changed = false;
             newCols.forEach(function(cid) {
@@ -684,6 +668,8 @@ function importFavorites(imported) {
             if (changed) { existing.collectionIds = curCols; merged++; }
         } else {
             // 新图片 → 添加
+            var colIds = (item.collectionIds && item.collectionIds.length > 0) ? item.collectionIds.slice() : ['__default__'];
+            if (targetCol && colIds.indexOf(targetCol) < 0) colIds.push(targetCol);
             var fav = {
                 id: item.id || (item.thumb || '').slice(-16),
                 width: item.width || 0, height: item.height || 0,
@@ -692,7 +678,7 @@ function importFavorites(imported) {
                 purity: item.purity || 'sfw', photographer: item.photographer || '',
                 sourceUrl: item.sourceUrl || '', source: item.source || '',
                 savedAt: item.savedAt || now, deletedAt: 0,
-                collectionIds: (item.collectionIds && item.collectionIds.length > 0) ? item.collectionIds : ['__default__']
+                collectionIds: colIds
             };
             W.state.favorites.push(fav);
             var idx = W.state.favorites.length - 1;
@@ -704,7 +690,6 @@ function importFavorites(imported) {
         }
     });
 
-    console.log('[import] 结果: added=' + added + ' merged=' + merged + ' skippedNoUrl=' + skippedNoUrl);
     if (added > 0 || merged > 0) {
         save(W.state.favorites);
         updateCount();
