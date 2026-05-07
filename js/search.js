@@ -562,6 +562,7 @@ W.downloadPhoto = downloadPhoto;
 // ---- 搜索 ----
 
 async function doSearch() {
+    if (!W.state._ready) return;
     if (W.state.isLoading) return;
     if (abortController) abortController.abort();
     abortController = new AbortController();

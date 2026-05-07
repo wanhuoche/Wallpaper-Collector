@@ -22,6 +22,7 @@ W.state = {
     isLoading: false,
     modalPhoto: null,
     hideFaved: false,
+    _ready: false,
 };
 
 // ---- DOM 引用 ----
@@ -537,4 +538,5 @@ if (shortcutsToggle) {
         initMsg += '（已填写个人 API Key，不消耗次数）';
     }
     D.resultsCount.textContent = initMsg;
+    W.state._ready = true;
 })();
