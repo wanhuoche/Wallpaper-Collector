@@ -805,19 +805,20 @@ async function doSearch() {
         W.dom.resultsCount.textContent = countMsg;
 
         setState('isLoading', false);
-        if (W.state.allPhotos.length < W.state.perPage
-            && rawCount > 0
-            && parsed.total > W.state.allPhotos.length
-        ) {
-            if (!W.state._autoFillCount) W.state._autoFillCount = 0;
-            if (W.state._autoFillCount < 5) {
-                W.state._autoFillCount++;
-                W.state.currentPage++;
-                doSearch();
-                return;
-            }
-        }
-        W.state._autoFillCount = 0;
+        // 自动补拉暂时禁用（手机端筛选后卡加载）
+        // if (W.state.allPhotos.length < W.state.perPage
+        //     && rawCount > 0
+        //     && parsed.total > W.state.allPhotos.length
+        // ) {
+        //     if (!W.state._autoFillCount) W.state._autoFillCount = 0;
+        //     if (W.state._autoFillCount < 5) {
+        //         W.state._autoFillCount++;
+        //         W.state.currentPage++;
+        //         doSearch();
+        //         return;
+        //     }
+        // }
+        // W.state._autoFillCount = 0;
     } catch (err) {
         if (err.name === 'AbortError') return;
         if (err.message === 'Failed to fetch') {
