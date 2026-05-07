@@ -519,21 +519,29 @@ function exportHTML() {
 }
 
 function importFavorites(imported) {
-    var existingMap = {};
+    // 用所有 URL 字段去重，避免只用第一个非空 URL 导致漏判或误判
+    var existingUrls = {};
     W.state.favorites.forEach(function(f) {
-        var key = f.full || f.medium || f.thumb;
-        if (key && !f.deletedAt) existingMap[key] = true;
+        if (f.deletedAt) return;
+        [f.full, f.medium, f.thumb, f.preview].forEach(function(u) {
+            if (u) existingUrls[u] = true;
+        });
     });
 
     var now = Date.now();
     var added = 0;
     imported.forEach(function(item) {
         if (!item.full && !item.medium && !item.thumb) return;
-        var key = item.full || item.medium || item.thumb;
-        if (existingMap[key]) return;
-        existingMap[key] = true;
+        var dup = [item.full, item.medium, item.thumb, item.preview].some(function(u) {
+            return u && existingUrls[u];
+        });
+        if (dup) return;
+        // 登记所有 URL，防止导入列表内部重复
+        [item.full, item.medium, item.thumb, item.preview].forEach(function(u) {
+            if (u) existingUrls[u] = true;
+        });
         W.state.favorites.push({
-            id: item.id || (key ? key.slice(-16) : ''),
+            id: item.id || (item.thumb || '').slice(-16),
             width: item.width || 0, height: item.height || 0,
             full: item.full || '', medium: item.medium || '', thumb: item.thumb || '',
             preview: item.preview || '', alt: item.alt || '',
