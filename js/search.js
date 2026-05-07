@@ -762,25 +762,20 @@ async function doSearch(_autoCall) {
         W.dom.resultsCount.textContent = countMsg;
 
         setState('isLoading', false);
-        var _filling = (W.state._autoFillCount || 0) > 0;
-        // 改用 parsed.total 判断是否还有更多结果，避免 Wallhaven 实际返回条数 ≠ perPage 导致条件失败
-        var _hasMoreServer = parsed.total > W.state.allPhotos.length;
-        var _c1 = (W.state.currentPage === 1 || _filling);
-        var _c2 = W.state.allPhotos.length > 0;
-        var _c3 = W.state.allPhotos.length < W.state.perPage;
-        var _c4 = rawCount > 0 && _hasMoreServer;
+        var _c1 = W.state.allPhotos.length < W.state.perPage;
+        var _c2 = rawCount > 0;
+        var _c3 = parsed.total > W.state.allPhotos.length;
         console.log('[auto-fill] 条件检查 — currentPage=' + W.state.currentPage
-            + ' | _filling=' + _filling
+            + ' | autoFillCount=' + (W.state._autoFillCount||0)
             + ' | allPhotosLen=' + W.state.allPhotos.length
             + ' | perPage=' + W.state.perPage
             + ' | rawCount=' + rawCount
             + ' | parsed.total=' + parsed.total
-            + ' | 条件: c1(page1||filling)=' + _c1
-            + ' c2(hasResults)=' + _c2
-            + ' c3(ltPerPage)=' + _c3
-            + ' c4(moreAvailable)=' + _c4
-            + ' => ' + (_c1&&_c2&&_c3&&_c4 ? '触发' : '跳过'));
-        if (_c1 && _c2 && _c3 && _c4) {
+            + ' | 条件: c1(notFull)=' + _c1
+            + ' c2(rawOk)=' + _c2
+            + ' c3(moreAvailable)=' + _c3
+            + ' => ' + (_c1&&_c2&&_c3 ? '触发' : '跳过'));
+        if (_c1 && _c2 && _c3) {
             if (!W.state._autoFillCount) W.state._autoFillCount = 0;
             if (W.state._autoFillCount < 5) {
                 W.state._autoFillCount++;
