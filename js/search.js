@@ -561,16 +561,11 @@ W.downloadPhoto = downloadPhoto;
 
 // ---- 搜索 ----
 
-async function doSearch(_autoCall) {
-    if (W.state.isLoading) {
-        console.log('[auto-fill] doSearch 跳过 — isLoading=true, page=' + W.state.currentPage + ', autoFillCount=' + (W.state._autoFillCount||0));
-        return;
-    }
+async function doSearch() {
+    if (W.state.isLoading) return;
     if (abortController) abortController.abort();
     abortController = new AbortController();
     var signal = abortController.signal;
-
-    console.log('[auto-fill] doSearch 开始 — page=' + W.state.currentPage + ', autoFillCount=' + (W.state._autoFillCount||0) + ', allPhotos.length=' + (W.state.allPhotos||[]).length + ', autoCall=' + !!_autoCall);
 
     setState('isLoading', true);
     W.dom.btnSearch.disabled = true;
@@ -762,29 +757,17 @@ async function doSearch(_autoCall) {
         W.dom.resultsCount.textContent = countMsg;
 
         setState('isLoading', false);
-        var _c1 = W.state.allPhotos.length < W.state.perPage;
-        var _c2 = rawCount > 0;
-        var _c3 = parsed.total > W.state.allPhotos.length;
-        console.log('[auto-fill] 条件检查 — currentPage=' + W.state.currentPage
-            + ' | autoFillCount=' + (W.state._autoFillCount||0)
-            + ' | allPhotosLen=' + W.state.allPhotos.length
-            + ' | perPage=' + W.state.perPage
-            + ' | rawCount=' + rawCount
-            + ' | parsed.total=' + parsed.total
-            + ' | 条件: c1(notFull)=' + _c1
-            + ' c2(rawOk)=' + _c2
-            + ' c3(moreAvailable)=' + _c3
-            + ' => ' + (_c1&&_c2&&_c3 ? '触发' : '跳过'));
-        if (_c1 && _c2 && _c3) {
+        if (W.state.allPhotos.length < W.state.perPage
+            && rawCount > 0
+            && parsed.total > W.state.allPhotos.length
+        ) {
             if (!W.state._autoFillCount) W.state._autoFillCount = 0;
             if (W.state._autoFillCount < 5) {
                 W.state._autoFillCount++;
                 W.state.currentPage++;
-                console.log('[auto-fill] 补拉第 ' + W.state._autoFillCount + ' 次 → 请求第 ' + W.state.currentPage + ' 页');
-                doSearch(true);
+                doSearch();
                 return;
             }
-            console.log('[auto-fill] 已达上限 5 次，停止补拉');
         }
         W.state._autoFillCount = 0;
     } catch (err) {
@@ -808,7 +791,6 @@ async function doSearch(_autoCall) {
         if (W.dom.loadMoreWrap.style.display !== 'none'
             && W.state.activeTab === 'search'
             && W.state.allPhotos.length < W.state.totalResults) {
-            console.log('[auto-fill] pendingScrollLoad 触发 — 加载第 ' + (W.state.currentPage + 1) + ' 页');
             W.state.currentPage++;
             doSearch();
         }
