@@ -342,6 +342,36 @@ if (colSelect) {
     });
 }
 
+// 绑定导入/导出按钮（每次 render 后调用）
+function bindImportButtons() {
+    var btnJSON = document.getElementById('btnExportJSON');
+    var btnHTML = document.getElementById('btnExportHTML');
+    var btnImport = document.getElementById('btnImportJSON');
+    if (btnJSON) btnJSON.addEventListener('click', exportJSON);
+    if (btnHTML) btnHTML.addEventListener('click', exportHTML);
+    if (btnImport) btnImport.addEventListener('click', function() { document.getElementById('importFileInput').click(); });
+
+    var fileInput = document.getElementById('importFileInput');
+    if (fileInput) {
+        fileInput.addEventListener('change', function() {
+            var file = fileInput.files[0];
+            if (!file) return;
+            var reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    var data = JSON.parse(e.target.result);
+                    if (!Array.isArray(data)) throw new Error('格式错误');
+                    importFavorites(data);
+                } catch (err) {
+                    W.showToast('导入失败: JSON 格式不正确', 'error');
+                }
+            };
+            reader.readAsText(file);
+            fileInput.value = '';
+        });
+    }
+}
+
 function render() {
     var list = W.state.favorites.filter(function(f) { return !f.deletedAt; });
     // 按收藏夹筛选
@@ -350,21 +380,28 @@ function render() {
         list = list.filter(function(f) { return (f.collectionIds || ['__default__']).indexOf(ac) >= 0; });
     }
     W.state._displayFavorites = list;
+
+    // 导入按钮始终显示（空收藏夹也需要导入入口）
+    var importBarStart = '<div class="fav-export-bar">'
+        + '<button class="fav-export-btn" id="btnImportJSON">📥 导入 JSON</button>'
+        + '<input type="file" id="importFileInput" accept=".json" style="display:none">';
+    var importBarEnd = '</div>';
+
     if (list.length === 0) {
         W.dom.resultsGrid.innerHTML =
             '<div style="grid-column:1/-1;text-align:center;padding:60px 20px;">'
             + '<div style="font-size:48px;margin-bottom:16px;">💝</div>'
             + '<h3 style="font-weight:600;margin-bottom:8px;">收藏夹是空的</h3>'
             + '<p style="color:#86868b;font-size:14px;">搜索壁纸并点击 ♡ 按钮收藏喜欢的图片</p>'
+            + '<p style="margin-top:12px;">' + importBarStart + importBarEnd + '</p>'
             + '</div>';
+        bindImportButtons();
         return;
     }
-    var html = '<div class="fav-export-bar">'
-        + '<button class="fav-export-btn" id="btnExportJSON">📋 导出 JSON</button>'
-        + '<button class="fav-export-btn" id="btnExportHTML">🖼 导出 HTML 画廊</button>'
-        + '<button class="fav-export-btn" id="btnImportJSON">📥 导入 JSON</button>'
-        + '<input type="file" id="importFileInput" accept=".json" style="display:none">'
-        + '</div>';
+    var html = importBarStart
+        + '<button class="fav-export-btn" id="btnExportJSON" style="margin-left:8px;">📋 导出 JSON</button>'
+        + '<button class="fav-export-btn" id="btnExportHTML" style="margin-left:8px;">🖼 导出 HTML 画廊</button>'
+        + importBarEnd;
     list.forEach(function(photo, idx) {
         var res = photo.width + '\xD7' + photo.height;
         var ratioBadge = photo.ratioMatch && photo.ratioMatch !== 'all'
@@ -429,33 +466,7 @@ function render() {
         });
     });
 
-    // 导出/导入按钮
-    var btnJSON = document.getElementById('btnExportJSON');
-    var btnHTML = document.getElementById('btnExportHTML');
-    var btnImport = document.getElementById('btnImportJSON');
-    if (btnJSON) btnJSON.addEventListener('click', exportJSON);
-    if (btnHTML) btnHTML.addEventListener('click', exportHTML);
-    if (btnImport) btnImport.addEventListener('click', function() { document.getElementById('importFileInput').click(); });
-
-    var fileInput = document.getElementById('importFileInput');
-    if (fileInput) {
-        fileInput.addEventListener('change', function() {
-            var file = fileInput.files[0];
-            if (!file) return;
-            var reader = new FileReader();
-            reader.onload = function(e) {
-                try {
-                    var data = JSON.parse(e.target.result);
-                    if (!Array.isArray(data)) throw new Error('格式错误');
-                    importFavorites(data);
-                } catch (err) {
-                    W.showToast('导入失败: JSON 格式不正确', 'error');
-                }
-            };
-            reader.readAsText(file);
-            fileInput.value = '';
-        });
-    }
+    bindImportButtons();
 }
 
 function exportJSON() {
@@ -519,27 +530,29 @@ function exportHTML() {
 }
 
 function importFavorites(imported) {
-    // 用所有 URL 字段去重，避免只用第一个非空 URL 导致漏判或误判
-    var existingUrls = {};
+    // 双重去重：URL 全字段 + (id, source) 组合键
+    var existingKeys = {};
     W.state.favorites.forEach(function(f) {
         if (f.deletedAt) return;
         [f.full, f.medium, f.thumb, f.preview].forEach(function(u) {
-            if (u) existingUrls[u] = true;
+            if (u) existingKeys[u] = true;
         });
+        if (f.id && f.source) existingKeys['id:' + f.id + '|' + f.source] = true;
     });
 
     var now = Date.now();
     var added = 0;
     imported.forEach(function(item) {
         if (!item.full && !item.medium && !item.thumb) return;
-        var dup = [item.full, item.medium, item.thumb, item.preview].some(function(u) {
-            return u && existingUrls[u];
-        });
-        if (dup) return;
-        // 登记所有 URL，防止导入列表内部重复
+        // 任一 URL 命中即判重
+        if ([item.full, item.medium, item.thumb, item.preview].some(function(u) { return u && existingKeys[u]; })) return;
+        // id+source 命中即判重
+        if (item.id && item.source && existingKeys['id:' + item.id + '|' + item.source]) return;
+        // 登记所有标识，防止导入列表内部重复
         [item.full, item.medium, item.thumb, item.preview].forEach(function(u) {
-            if (u) existingUrls[u] = true;
+            if (u) existingKeys[u] = true;
         });
+        if (item.id && item.source) existingKeys['id:' + item.id + '|' + item.source] = true;
         W.state.favorites.push({
             id: item.id || (item.thumb || '').slice(-16),
             width: item.width || 0, height: item.height || 0,
