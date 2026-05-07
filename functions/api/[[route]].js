@@ -311,12 +311,14 @@ async function handleSyncFavorites(request, env) {
   }
   const cloudCollections = fullSettings.collections || [];
 
-  // 按 id 合并（保留 createdAt 较新的），按 name 去重
+  // 按 id 合并：比较 Math.max(createdAt, deletedAt) 处理墓碑
   const colMap = {};
   cloudCollections.forEach(c => { colMap[c.id] = c; });
   incomingCollections.forEach(c => {
     if (colMap[c.id]) {
-      if ((c.createdAt || 0) > (colMap[c.id].createdAt || 0)) colMap[c.id] = c;
+      const incTime = Math.max(c.createdAt || 0, c.deletedAt || 0);
+      const cloudTime = Math.max(colMap[c.id].createdAt || 0, colMap[c.id].deletedAt || 0);
+      if (incTime > cloudTime) colMap[c.id] = c;
     } else {
       // 检查同名冲突
       var dup = false;
@@ -326,7 +328,12 @@ async function handleSyncFavorites(request, env) {
       if (!dup) colMap[c.id] = c;
     }
   });
-  mergedCollections = Object.values(colMap);
+  // 清理过期墓碑（30 天）
+  const COL_TOMBSTONE_TTL = 30 * 24 * 60 * 60 * 1000;
+  const cutoff = Date.now() - COL_TOMBSTONE_TTL;
+  mergedCollections = Object.values(colMap).filter(function(c) {
+    return !c.deletedAt || c.deletedAt > cutoff;
+  });
 
   // 确保 __default__ 始终存在
   if (!mergedCollections.find(function(c) { return c.id === '__default__'; })) {

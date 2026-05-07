@@ -10,7 +10,13 @@ const TOMBSTONE_TTL = 30 * 24 * 60 * 60 * 1000; // 30 天后清理墓碑
 function loadCollections() {
     try {
         var data = localStorage.getItem(COLLECTIONS_KEY);
-        if (data) return JSON.parse(data);
+        if (data) {
+            var list = JSON.parse(data);
+            // 清理过期墓碑
+            var cutoff = Date.now() - (30 * 24 * 60 * 60 * 1000);
+            list = list.filter(function(c) { return !c.deletedAt || c.deletedAt > cutoff; });
+            return list;
+        }
     } catch (e) {}
     // 首次创建默认收藏夹
     var def = [{ id: '__default__', name: '默认收藏夹', createdAt: Date.now() }];
@@ -28,7 +34,7 @@ function saveAndPushCollections(list) {
     pushFavorites();
 }
 
-// 以云端为基准合并收藏夹列表
+// 以云端为基准合并收藏夹列表（时间戳比较处理墓碑）
 function mergeCollections(cloudCols) {
     if (!cloudCols || cloudCols.length === 0) return false;
 
@@ -38,7 +44,9 @@ function mergeCollections(cloudCols) {
     var changed = false;
     cloudCols.forEach(function(c) {
         if (localMap[c.id]) {
-            if ((c.createdAt || 0) > (localMap[c.id].createdAt || 0)) {
+            var cloudTime = Math.max(c.createdAt || 0, c.deletedAt || 0);
+            var localTime = Math.max(localMap[c.id].createdAt || 0, localMap[c.id].deletedAt || 0);
+            if (cloudTime > localTime) {
                 localMap[c.id] = c;
                 changed = true;
             }
@@ -56,7 +64,11 @@ function mergeCollections(cloudCols) {
     });
 
     if (changed) {
-        var merged = Object.values(localMap);
+        // 清理过期墓碑（30 天）
+        var cutoff = Date.now() - (30 * 24 * 60 * 60 * 1000);
+        var merged = Object.values(localMap).filter(function(c) {
+            return !c.deletedAt || c.deletedAt > cutoff;
+        });
         if (!merged.find(function(c) { return c.id === '__default__'; })) {
             merged.unshift({ id: '__default__', name: '默认收藏夹', createdAt: Date.now() });
         }
@@ -98,7 +110,9 @@ function deleteCollection(id) {
         }
     });
     save(W.state.favorites);
-    W.state.collections = W.state.collections.filter(function(c) { return c.id !== id; });
+    // 墓碑：标记 deletedAt 而非直接移除，保证跨设备同步能传播删除
+    var col = W.state.collections.find(function(c) { return c.id === id; });
+    if (col) { col.deletedAt = Date.now(); }
     saveAndPushCollections(W.state.collections);
     populateCollectionSelect();
     if (W.state.activeCollection === id) {
@@ -114,6 +128,7 @@ function populateCollectionSelect() {
     if (!sel) return;
     sel.innerHTML = '<option value="__all__">全部</option>';
     W.state.collections.forEach(function(c) {
+        if (c.deletedAt) return;
         var label = c.id === '__default__' ? c.name : c.name;
         sel.innerHTML += '<option value="' + c.id + '">' + escapeHtml(label) + '</option>';
     });
@@ -146,6 +161,7 @@ function showCollectionPicker(photo, source) {
     var activeColl = W.state.activeCollection;
     list.innerHTML = '';
     W.state.collections.forEach(function(c) {
+        if (c.deletedAt) return;
         var checked = c.id === '__default__' || c.id === activeColl;
         list.innerHTML += '<label class="col-picker-item">'
             + '<input type="checkbox" value="' + c.id + '"' + (checked ? ' checked' : '') + '>'
@@ -828,7 +844,7 @@ function renderMgmtList() {
     if (!listEl) return;
     var html = '';
     W.state.collections.forEach(function(c) {
-        if (c.id === '__default__') return;
+        if (c.id === '__default__' || c.deletedAt) return;
         var count = W.state.favorites.filter(function(f) {
             return !f.deletedAt && (f.collectionIds || []).indexOf(c.id) >= 0;
         }).length;
