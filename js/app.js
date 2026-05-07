@@ -550,13 +550,22 @@ if (btnBatchUnfav) {
     btnBatchUnfav.addEventListener('click', function() {
         if (W.state.selectedPhotos.length === 0) { W.showToast('请先勾选图片', ''); return; }
         var count = 0;
+        // 在具体收藏夹中 → 仅移出该收藏夹；全部/搜索视图 → 彻底取消收藏
+        var targetCol = (W.state.activeTab === 'favorites' && W.state.activeCollection !== '__all__') ? W.state.activeCollection : null;
         W.state.selectedPhotos.forEach(function(p) {
-            var isFav = W.favorites.isFavorite(p.id, p.source || W.state.source);
-            if (isFav) { W.favorites.toggle(p, p.source || W.state.source); count++; }
+            var fav = W.favorites.isFavorite(p.id, p.source || W.state.source);
+            if (!fav) return;
+            if (targetCol) {
+                W.favorites.removeFromCollection(p, p.source || W.state.source, targetCol);
+            } else {
+                W.favorites.toggle(p, p.source || W.state.source);
+            }
+            count++;
         });
         if (count > 0) {
             W.favorites.updateCount();
-            W.showToast('已取消收藏 ' + count + ' 张 ✓', 'success');
+            var msg = targetCol ? '已从收藏夹移除 ' + count + ' 张 ✓' : '已取消收藏 ' + count + ' 张 ✓';
+            W.showToast(msg, 'success');
             W.state.selectedPhotos = [];
             exitMultiSelect();
             if (W.state.activeTab === 'favorites') W.favorites.render();

@@ -420,6 +420,28 @@ function addFavorite(photo, source, collectionIds) {
     return true;
 }
 
+// 仅从指定收藏夹移除（还有其他收藏夹则保留图片，只剩一个则彻底取消收藏）
+function removeFromCollection(photo, source, collectionId) {
+    source = source || photo.source || W.state.source;
+    var list = W.state.favorites;
+    for (var i = 0; i < list.length; i++) {
+        if (String(list[i].id) === String(photo.id) && list[i].source === source && !list[i].deletedAt) {
+            var cids = (list[i].collectionIds || ['__default__']).filter(function(cid) { return cid !== collectionId; });
+            if (cids.length === 0) {
+                // 无处可放 → 彻底取消收藏
+                list[i].deletedAt = Date.now();
+            } else {
+                list[i].collectionIds = cids;
+            }
+            setState('favorites', list);
+            save(list);
+            pushFavorites();
+            return true;
+        }
+    }
+    return false;
+}
+
 // 收藏夹切换事件
 var colSelect = document.getElementById('collectionSelect');
 if (colSelect) {
@@ -954,6 +976,7 @@ export const favorites = {
     isFavorite: isFavorite,
     toggle: toggle,
     addFavorite: addFavorite,
+    removeFromCollection: removeFromCollection,
     showCollectionPicker: showCollectionPicker,
     hideCollectionPicker: hideCollectionPicker,
     render: render,
