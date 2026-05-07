@@ -774,19 +774,15 @@ document.getElementById('btnPickerConfirm').addEventListener('click', function()
     document.querySelectorAll('#colPickerList input:checked').forEach(function(cb) {
         checkedIds.push(cb.value);
     });
+    var resolve = _pickerResolve;
     hideCollectionPicker();
-    if (_pickerResolve) {
-        _pickerResolve(checkedIds);
-        _pickerResolve = null;
-    }
+    if (resolve) resolve(checkedIds);
 });
 
 document.getElementById('btnPickerCancel').addEventListener('click', function() {
+    var resolve = _pickerResolve;
     hideCollectionPicker();
-    if (_pickerResolve) {
-        _pickerResolve(null);
-        _pickerResolve = null;
-    }
+    if (resolve) resolve(null);
 });
 
 // 点击面板外部关闭
@@ -796,11 +792,9 @@ document.addEventListener('click', function(e) {
         && !picker.contains(e.target)
         && !e.target.closest('.card-fav')
         && !e.target.closest('#modalFav')) {
+        var resolve = _pickerResolve;
         hideCollectionPicker();
-        if (_pickerResolve) {
-            _pickerResolve(null);
-            _pickerResolve = null;
-        }
+        if (resolve) resolve(null);
     }
 });
 
