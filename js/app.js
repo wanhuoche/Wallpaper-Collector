@@ -397,21 +397,34 @@ if (btnViewOriginal) {
         };
     });
 }
+// 收藏操作（含选择面板）
+async function favWithPicker(photo, source) {
+    if (!W.state.user) { location.href = 'login.html'; return; }
+    var isFav = W.favorites.isFavorite(photo.id, source || photo.source || W.state.source);
+    if (isFav) {
+        W.favorites.toggle(photo, source || photo.source || W.state.source);
+        W.favorites.updateModalFavButton();
+        W.favorites.updateCount();
+        W.showToast('已取消收藏', 'success');
+        if (W.state.activeTab === 'favorites') W.favorites.render();
+        else if (W.state.hideFaved) W._renderResults();
+        else W.favorites.updateSearchCardFavButtons();
+    } else {
+        var collectionIds = await W.favorites.showCollectionPicker(photo, source || photo.source || W.state.source);
+        if (!collectionIds) return;
+        W.favorites.addFavorite(photo, source || photo.source || W.state.source, collectionIds);
+        W.favorites.updateModalFavButton();
+        W.favorites.updateCount();
+        W.showToast('已添加到收藏 ♥', 'success');
+        if (W.state.activeTab === 'favorites') W.favorites.render();
+        else if (W.state.hideFaved) W._renderResults();
+        else W.favorites.updateSearchCardFavButtons();
+    }
+}
+
 D.modalFav.addEventListener('click', function() {
     if (!W.state.modalPhoto) return;
-    if (!W.state.user) { location.href = 'login.html'; return; }
-    var photo = W.state.modalPhoto;
-    var added = W.favorites.toggle(photo, photo.source || W.state.source);
-    W.favorites.updateModalFavButton();
-    W.favorites.updateCount();
-    if (W.state.activeTab === 'favorites') {
-        W.favorites.render();
-    } else if (W.state.hideFaved) {
-        W._renderResults();
-    } else {
-        W.favorites.updateSearchCardFavButtons();
-    }
-    W.showToast(added ? '已添加到收藏 ♥' : '已取消收藏', 'success');
+    favWithPicker(W.state.modalPhoto, W.state.modalPhoto.source || W.state.source);
 });
 
 // ---- 回到顶部 ----
@@ -663,13 +676,7 @@ document.addEventListener('keydown', function(e) {
     if ((e.ctrlKey || e.metaKey) && e.key === 's') {
         e.preventDefault();
         if (modalOpen && W.state.modalPhoto) {
-            var photo = W.state.modalPhoto;
-            W.favorites.toggle(photo, photo.source || W.state.source);
-            W.favorites.updateModalFavButton();
-            W.favorites.updateCount();
-            if (W.state.activeTab === 'favorites') W.favorites.render();
-            else if (W.state.hideFaved) W._renderResults();
-            else W.favorites.updateSearchCardFavButtons();
+            favWithPicker(W.state.modalPhoto, W.state.modalPhoto.source || W.state.source);
         }
     }
     if (e.key === '?' && !e.ctrlKey && !e.metaKey && !e.altKey) {

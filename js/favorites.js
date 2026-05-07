@@ -2,7 +2,124 @@ import { setState } from './state.js';
 
 const W = window.WallpaperApp;
 const STORAGE_KEY = 'wp_favorites';
+const COLLECTIONS_KEY = 'wp_collections';
 const TOMBSTONE_TTL = 30 * 24 * 60 * 60 * 1000; // 30 天后清理墓碑
+
+// ── 收藏夹管理 ──
+
+function loadCollections() {
+    try {
+        var data = localStorage.getItem(COLLECTIONS_KEY);
+        if (data) return JSON.parse(data);
+    } catch (e) {}
+    // 首次创建默认收藏夹
+    var def = [{ id: '__default__', name: '默认收藏夹', createdAt: Date.now() }];
+    localStorage.setItem(COLLECTIONS_KEY, JSON.stringify(def));
+    return def;
+}
+
+function saveCollections(list) {
+    try { localStorage.setItem(COLLECTIONS_KEY, JSON.stringify(list)); } catch (e) {}
+}
+
+W.state.collections = loadCollections();
+W.state.activeCollection = '__all__';
+
+function getActiveCollections() {
+    return W.state.collections;
+}
+
+function createCollection(name) {
+    var id = 'col_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+    W.state.collections.push({ id: id, name: name, createdAt: Date.now() });
+    saveCollections(W.state.collections);
+    populateCollectionSelect();
+    return id;
+}
+
+function renameCollection(id, newName) {
+    var col = W.state.collections.find(function(c) { return c.id === id; });
+    if (col) { col.name = newName; saveCollections(W.state.collections); populateCollectionSelect(); }
+}
+
+function deleteCollection(id) {
+    var name = (W.state.collections.find(function(c) { return c.id === id; }) || {}).name || '';
+    // 把该收藏夹的图片保留，collectionId 改回 __default__
+    W.state.favorites.forEach(function(f) {
+        if (f.collectionIds && f.collectionIds.indexOf(id) >= 0) {
+            f.collectionIds = f.collectionIds.filter(function(cid) { return cid !== id; });
+            if (f.collectionIds.length === 0) f.collectionIds = ['__default__'];
+        }
+    });
+    save(W.state.favorites);
+    W.state.collections = W.state.collections.filter(function(c) { return c.id !== id; });
+    saveCollections(W.state.collections);
+    populateCollectionSelect();
+    if (W.state.activeCollection === id) {
+        W.state.activeCollection = '__all__';
+        document.getElementById('collectionSelect').value = '__all__';
+    }
+    if (W.state.activeTab === 'favorites') render();
+    W.showToast('已删除收藏夹「' + name + '」', 'success');
+}
+
+function populateCollectionSelect() {
+    var sel = document.getElementById('collectionSelect');
+    if (!sel) return;
+    sel.innerHTML = '<option value="__all__">全部</option>';
+    W.state.collections.forEach(function(c) {
+        var label = c.id === '__default__' ? c.name : c.name;
+        sel.innerHTML += '<option value="' + c.id + '">' + escapeHtml(label) + '</option>';
+    });
+    sel.value = W.state.activeCollection || '__all__';
+}
+
+// 数据迁移：旧数据无 collectionIds → 补默认
+function migrateFavorites() {
+    var changed = false;
+    W.state.favorites.forEach(function(f) {
+        if (!f.collectionIds || f.collectionIds.length === 0) {
+            f.collectionIds = ['__default__'];
+            changed = true;
+        }
+    });
+    if (changed) save(W.state.favorites);
+}
+
+// ── 收藏选择面板 ──
+
+var _pickerResolve = null;
+var _pickerPhoto = null;
+var _pickerSource = null;
+
+function showCollectionPicker(photo, source) {
+    _pickerPhoto = photo;
+    _pickerSource = source;
+    var panel = document.getElementById('colPicker');
+    var list = document.getElementById('colPickerList');
+    var activeColl = W.state.activeCollection;
+    list.innerHTML = '';
+    W.state.collections.forEach(function(c) {
+        var checked = c.id === '__default__' || c.id === activeColl;
+        list.innerHTML += '<label class="col-picker-item">'
+            + '<input type="checkbox" value="' + c.id + '"' + (checked ? ' checked' : '') + '>'
+            + escapeHtml(c.name) + '</label>';
+    });
+    panel.style.display = 'block';
+    // 定位在视口中央偏上
+    panel.style.left = '50%';
+    panel.style.top = '40%';
+    panel.style.transform = 'translate(-50%, -50%)';
+
+    return new Promise(function(resolve) {
+        _pickerResolve = resolve;
+    });
+}
+
+function hideCollectionPicker() {
+    document.getElementById('colPicker').style.display = 'none';
+    _pickerResolve = null;
+}
 
 // ── 墓碑清理 ──
 
@@ -17,7 +134,12 @@ function load() {
     try {
         var data = localStorage.getItem(STORAGE_KEY);
         var list = data ? JSON.parse(data) : [];
-        return cleanTombstones(list);
+        list = cleanTombstones(list);
+        // 旧数据迁移
+        list.forEach(function(f) {
+            if (!f.collectionIds || f.collectionIds.length === 0) f.collectionIds = ['__default__'];
+        });
+        return list;
     } catch (e) {
         return [];
     }
@@ -170,41 +292,63 @@ function toggle(photo, source) {
             break;
         }
     }
-    var added;
     if (idx >= 0) {
-        list[idx].deletedAt = Date.now();  // 墓碑：标记删除而非删除，跨设备同步可见
-        added = false;
+        list[idx].deletedAt = Date.now();
+        setState('favorites', list);
+        save(list);
+        pushFavorites();
+        return false;
+    }
+    // 未收藏 → 需要外部调用 showCollectionPicker 后 addFavorite
+    return null;
+}
+
+function addFavorite(photo, source, collectionIds) {
+    if (!collectionIds || collectionIds.length === 0) collectionIds = ['__default__'];
+    source = source || photo.source || W.state.source;
+    var list = W.state.favorites;
+    // 复活墓碑
+    var deadIdx = -1;
+    for (var i = 0; i < list.length; i++) {
+        if (String(list[i].id) === String(photo.id) && list[i].source === source && list[i].deletedAt) {
+            deadIdx = i;
+            break;
+        }
+    }
+    if (deadIdx >= 0) {
+        delete list[deadIdx].deletedAt;
+        list[deadIdx].savedAt = Date.now();
+        list[deadIdx].collectionIds = collectionIds.slice();
     } else {
-        // 检查是否之前删过（墓碑还在列表中），有则复活
-        var deadIdx = -1;
-        for (var j = 0; j < list.length; j++) {
-            if (String(list[j].id) === String(photo.id) && list[j].source === source && list[j].deletedAt) {
-                deadIdx = j;
-                break;
-            }
-        }
-        if (deadIdx >= 0) {
-            delete list[deadIdx].deletedAt;
-            list[deadIdx].savedAt = Date.now();
-        } else {
-            var fav = {};
-            Object.keys(photo).forEach(function(k) { fav[k] = photo[k]; });
-            fav.source = source;
-            fav.savedAt = Date.now();
-            list.unshift(fav);
-        }
-        added = true;
+        var fav = {};
+        Object.keys(photo).forEach(function(k) { fav[k] = photo[k]; });
+        fav.source = source;
+        fav.savedAt = Date.now();
+        fav.collectionIds = collectionIds.slice();
+        list.unshift(fav);
     }
     setState('favorites', list);
     save(list);
-
     pushFavorites();
+    return true;
+}
 
-    return added;
+// 收藏夹切换事件
+var colSelect = document.getElementById('collectionSelect');
+if (colSelect) {
+    colSelect.addEventListener('change', function() {
+        W.state.activeCollection = colSelect.value;
+        if (W.state.activeTab === 'favorites') render();
+    });
 }
 
 function render() {
     var list = W.state.favorites.filter(function(f) { return !f.deletedAt; });
+    // 按收藏夹筛选
+    var ac = W.state.activeCollection || '__all__';
+    if (ac !== '__all__') {
+        list = list.filter(function(f) { return (f.collectionIds || ['__default__']).indexOf(ac) >= 0; });
+    }
     W.state._displayFavorites = list;
     if (list.length === 0) {
         W.dom.resultsGrid.innerHTML =
@@ -321,7 +465,8 @@ function exportJSON() {
             id: f.id, width: f.width, height: f.height,
             full: f.full, medium: f.medium, thumb: f.thumb, preview: f.preview,
             alt: f.alt, purity: f.purity, photographer: f.photographer,
-            sourceUrl: f.sourceUrl, source: f.source, savedAt: f.savedAt
+            sourceUrl: f.sourceUrl, source: f.source, savedAt: f.savedAt,
+            collectionIds: f.collectionIds || ['__default__']
         };
     });
     var blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -394,7 +539,8 @@ function importFavorites(imported) {
             preview: item.preview || '', alt: item.alt || '',
             purity: item.purity || 'sfw', photographer: item.photographer || '',
             sourceUrl: item.sourceUrl || '', source: item.source || '',
-            savedAt: item.savedAt || now, deletedAt: 0
+            savedAt: item.savedAt || now, deletedAt: 0,
+            collectionIds: (item.collectionIds && item.collectionIds.length > 0) ? item.collectionIds : ['__default__']
         });
         added++;
     });
@@ -493,6 +639,8 @@ function switchTab(tabName) {
         document.getElementById('hideFavedLabel').style.display = 'none';
         document.getElementById('multiSelectLabel').style.display = W.state.favorites.filter(function(f) { return !f.deletedAt; }).length > 0 ? '' : 'none';
         document.getElementById('multiSelectBar').style.display = 'none';
+        document.getElementById('collectionFilter').style.display = '';
+        populateCollectionSelect();
         W.dom.loadMoreWrap.style.display = 'none';
         W.dom.resultsCount.textContent = '收藏夹 · 共 ' + W.state.favorites.filter(function(f) { return !f.deletedAt; }).length + ' 张';
         render();
@@ -500,6 +648,7 @@ function switchTab(tabName) {
         document.getElementById('hideFavedLabel').style.display = W.state.photos.length > 0 ? '' : 'none';
         document.getElementById('multiSelectLabel').style.display = W.state.photos.length > 0 ? '' : 'none';
         document.getElementById('multiSelectBar').style.display = 'none';
+        document.getElementById('collectionFilter').style.display = 'none';
         if (typeof W.state._searchGridHTML === 'string') {
             W.dom.resultsGrid.innerHTML = W.state._searchGridHTML;
             W.attachCardListeners();
@@ -528,6 +677,133 @@ tabs.forEach(function(tab) {
 
 updateCount();
 
+// ── 收藏夹管理面板事件 ──
+
+var btnMgmt = document.getElementById('btnManageCollections');
+var mgmtOverlay = document.getElementById('colMgmtOverlay');
+var btnCloseMgmt = document.getElementById('btnCloseMgmt');
+var btnAddCol = document.getElementById('btnAddCollection');
+var colNewName = document.getElementById('colNewName');
+
+function renderMgmtList() {
+    var listEl = document.getElementById('colMgmtList');
+    if (!listEl) return;
+    var html = '';
+    W.state.collections.forEach(function(c) {
+        if (c.id === '__default__') return;
+        var count = W.state.favorites.filter(function(f) {
+            return !f.deletedAt && (f.collectionIds || []).indexOf(c.id) >= 0;
+        }).length;
+        html += '<div class="col-mgmt-item">'
+            + '<span class="name">' + escapeHtml(c.name) + '</span>'
+            + '<span class="count">' + count + ' 张</span>'
+            + '<button class="act edit" data-id="' + c.id + '">✎</button>'
+            + '<button class="act del" data-id="' + c.id + '">✕</button>'
+            + '</div>';
+    });
+    listEl.innerHTML = html || '<div style="color:#86868b;font-size:13px;text-align:center;padding:12px;">暂无自定义收藏夹</div>';
+
+    // 编辑
+    listEl.querySelectorAll('.act.edit').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            var id = btn.dataset.id;
+            var col = W.state.collections.find(function(c) { return c.id === id; });
+            if (!col) return;
+            var newName = prompt('重命名收藏夹', col.name);
+            if (newName && newName.trim() && newName.trim() !== col.name) {
+                renameCollection(id, newName.trim());
+                renderMgmtList();
+                if (W.state.activeTab === 'favorites') render();
+            }
+        });
+    });
+    // 删除
+    listEl.querySelectorAll('.act.del').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            var id = btn.dataset.id;
+            var col = W.state.collections.find(function(c) { return c.id === id; });
+            if (!col) return;
+            var count = W.state.favorites.filter(function(f) {
+                return !f.deletedAt && (f.collectionIds || []).indexOf(id) >= 0;
+            }).length;
+            if (confirm('确定删除收藏夹「' + col.name + '」？\n其中的 ' + count + ' 张图片将移回默认收藏夹。')) {
+                deleteCollection(id);
+                renderMgmtList();
+            }
+        });
+    });
+}
+
+if (btnMgmt) {
+    btnMgmt.addEventListener('click', function() {
+        renderMgmtList();
+        mgmtOverlay.style.display = 'flex';
+    });
+}
+if (btnCloseMgmt) {
+    btnCloseMgmt.addEventListener('click', function() {
+        mgmtOverlay.style.display = 'none';
+    });
+}
+mgmtOverlay.addEventListener('click', function(e) {
+    if (e.target === mgmtOverlay) mgmtOverlay.style.display = 'none';
+});
+if (btnAddCol) {
+    btnAddCol.addEventListener('click', function() {
+        var name = (colNewName.value || '').trim();
+        if (!name) return;
+        if (W.state.collections.find(function(c) { return c.name === name; })) {
+            W.showToast('收藏夹名称已存在', 'error');
+            return;
+        }
+        createCollection(name);
+        colNewName.value = '';
+        renderMgmtList();
+    });
+}
+if (colNewName) {
+    colNewName.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') btnAddCol.click();
+    });
+}
+
+// ── 选择面板事件 ──
+
+document.getElementById('btnPickerConfirm').addEventListener('click', function() {
+    var checkedIds = [];
+    document.querySelectorAll('#colPickerList input:checked').forEach(function(cb) {
+        checkedIds.push(cb.value);
+    });
+    hideCollectionPicker();
+    if (_pickerResolve) {
+        _pickerResolve(checkedIds);
+        _pickerResolve = null;
+    }
+});
+
+document.getElementById('btnPickerCancel').addEventListener('click', function() {
+    hideCollectionPicker();
+    if (_pickerResolve) {
+        _pickerResolve(null);
+        _pickerResolve = null;
+    }
+});
+
+// 点击面板外部关闭
+document.addEventListener('click', function(e) {
+    var picker = document.getElementById('colPicker');
+    if (picker && picker.style.display === 'block'
+        && !picker.contains(e.target)
+        && !e.target.closest('.card-fav')
+        && !e.target.closest('#modalFav')) {
+        hideCollectionPicker();
+        if (_pickerResolve) {
+            _pickerResolve(null);
+            _pickerResolve = null;
+        }
+    }
+});
+
 // ── Public API ──
 
 export const favorites = {
@@ -535,6 +811,9 @@ export const favorites = {
     save: save,
     isFavorite: isFavorite,
     toggle: toggle,
+    addFavorite: addFavorite,
+    showCollectionPicker: showCollectionPicker,
+    hideCollectionPicker: hideCollectionPicker,
     render: render,
     updateCount: updateCount,
     updateModalFavButton: updateModalFavButton,

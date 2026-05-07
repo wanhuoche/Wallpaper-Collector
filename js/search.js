@@ -471,15 +471,35 @@ function attachCardListeners() {
             var idx = parseInt(btn.dataset.index);
             var photo = list[idx];
             if (!photo) return;
-            var added = W.favorites.toggle(photo, W.state.source);
-            W.favorites.updateCount();
-            W.showToast(added ? '已添加到收藏 ♥' : '已取消收藏', 'success');
-            if (W.state.hideFaved && added) {
-                W.state.photos = W.state.allPhotos;
-                renderResults();
+            var isFav = W.favorites.isFavorite(photo.id, W.state.source);
+            if (isFav) {
+                // 已收藏 → 直接取消
+                W.favorites.toggle(photo, W.state.source);
+                W.favorites.updateCount();
+                W.showToast('已取消收藏', 'success');
+                btn.textContent = '♡';
+                btn.classList.remove('active');
             } else {
-                btn.textContent = added ? '♥' : '♡';
-                btn.classList.toggle('active', added);
+                // 未收藏 → 弹出选择面板
+                W.favorites.showCollectionPicker(photo, W.state.source).then(function(collectionIds) {
+                    if (!collectionIds) return; // 取消
+                    W.favorites.addFavorite(photo, W.state.source, collectionIds);
+                    W.favorites.updateCount();
+                    W.showToast('已添加到收藏 ♥', 'success');
+                    if (W.state.activeTab === 'favorites' && W.state.activeCollection !== '__all__') {
+                        // 如果当前筛选的收藏夹不在选择中，刷新后可能看不到
+                        if (collectionIds.indexOf(W.state.activeCollection) < 0) {
+                            W.favorites.render(); // 可能在当前筛选下不显示
+                        }
+                    }
+                    if (W.state.hideFaved) {
+                        W.state.photos = W.state.allPhotos;
+                        renderResults();
+                    } else {
+                        btn.textContent = '♥';
+                        btn.classList.add('active');
+                    }
+                });
             }
         });
     });

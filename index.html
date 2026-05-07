@@ -95,6 +95,11 @@
             <span class="results-count" id="resultsCount">请先设置 API 密钥并选择图源</span>
             <label class="hide-faved-toggle" id="hideFavedLabel" style="display:none"><input type="checkbox" id="hideFaved"> 隐藏已收藏</label>
             <label class="multi-select-toggle" id="multiSelectLabel" style="display:none"><input type="checkbox" id="multiSelectToggle"> 多选</label>
+            <div class="collection-filter" id="collectionFilter" style="display:none">
+                <span class="col-filter-label">📁</span>
+                <select class="col-select" id="collectionSelect"></select>
+                <button class="col-manage-btn" id="btnManageCollections">管理</button>
+            </div>
         </div>
         <div class="multi-select-bar" id="multiSelectBar" style="display:none">
             <button class="ms-btn" id="btnSelectAll">全选</button>
@@ -237,6 +242,29 @@
         <div class="shortcut-row"><kbd>Ctrl</kbd>+<kbd>S</kbd><span>收藏 / 取消收藏</span></div>
         <div class="shortcut-row"><kbd>Esc</kbd><span>关闭预览 / 设置</span></div>
         <div class="shortcut-row"><kbd>←</kbd><kbd>→</kbd><span>切换预览图</span></div>
+    </div>
+
+    <!-- 管理收藏夹面板 -->
+    <div class="col-mgmt-overlay" id="colMgmtOverlay" style="display:none">
+        <div class="col-mgmt-panel">
+            <h3>管理收藏夹</h3>
+            <div class="col-mgmt-list" id="colMgmtList"></div>
+            <div class="col-mgmt-add">
+                <input type="text" class="col-mgmt-input" id="colNewName" placeholder="新建收藏夹名称" maxlength="20">
+                <button class="col-mgmt-add-btn" id="btnAddCollection">新建</button>
+            </div>
+            <button class="col-mgmt-close" id="btnCloseMgmt">完成</button>
+        </div>
+    </div>
+
+    <!-- 收藏选择面板 -->
+    <div class="col-picker" id="colPicker" style="display:none">
+        <div class="col-picker-title">添加到收藏夹</div>
+        <div class="col-picker-list" id="colPickerList"></div>
+        <div class="col-picker-actions">
+            <button class="col-picker-btn cancel" id="btnPickerCancel">取消</button>
+            <button class="col-picker-btn confirm" id="btnPickerConfirm">确认</button>
+        </div>
     </div>
 
     <script type="module" src="js/app.js"></script>
