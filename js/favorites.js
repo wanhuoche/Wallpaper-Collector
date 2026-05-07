@@ -365,7 +365,7 @@ function switchTab(tabName) {
         document.getElementById('multiSelectLabel').style.display = W.state.favorites.filter(function(f) { return !f.deletedAt; }).length > 0 ? '' : 'none';
         document.getElementById('multiSelectBar').style.display = 'none';
         W.dom.loadMoreWrap.style.display = 'none';
-        W.dom.resultsCount.textContent = '收藏夹 · 共 ' + W.state.favorites.length + ' 张';
+        W.dom.resultsCount.textContent = '收藏夹 · 共 ' + W.state.favorites.filter(function(f) { return !f.deletedAt; }).length + ' 张';
         render();
     } else {
         document.getElementById('hideFavedLabel').style.display = W.state.photos.length > 0 ? '' : 'none';
