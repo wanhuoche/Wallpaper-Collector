@@ -335,8 +335,9 @@ if (sentinel && 'IntersectionObserver' in window) {
         entries.forEach(function(entry) {
             if (!entry.isIntersecting) return;
             if (W.state.activeTab !== 'search') return;
-            if (W.state.isLoading) return;
+            if (W.state.isLoading) { W.state._pendingScrollLoad = true; return; }
             if (D.loadMoreWrap.style.display === 'none') return;
+            W.state._pendingScrollLoad = false;
             W.state.currentPage++;
             W.doSearch();
         });
