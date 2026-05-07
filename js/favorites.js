@@ -312,7 +312,9 @@ function mergeLocal(cloudFavs) {
         if (!key) return;
         var cloud = cloudMap[key];
         if (cloud) {
-            localMap[key] = (f.savedAt || 0) > (cloud.savedAt || 0) ? f : cloud;
+            var localTs = Math.max(f.savedAt || 0, f.deletedAt || 0);
+            var cloudTs = Math.max(cloud.savedAt || 0, cloud.deletedAt || 0);
+            localMap[key] = localTs >= cloudTs ? f : cloud;
         } else if ((f.savedAt || 0) > maxCloudSavedAt) {
             localMap[key] = f;
             addedCount++;
@@ -634,20 +636,17 @@ function importFavorites(imported) {
     var added = 0;
     var merged = 0;
     var skippedNoUrl = 0;
-    imported.forEach(function(item, itemIdx) {
+    imported.forEach(function(item) {
         if (!item.full && !item.medium && !item.thumb && !item.preview) { skippedNoUrl++; return; }
 
         // 查找是否已存在
         var matchIdx = -1;
-        var matchType = '';
         if (item.id && item.source && existingIdx[item.id + '|' + item.source] !== undefined) {
             matchIdx = existingIdx[item.id + '|' + item.source];
-            matchType = 'id+source';
         } else {
             [item.full, item.medium, item.thumb, item.preview].some(function(u) {
                 if (u && existingUrlIdx[u] !== undefined) {
                     matchIdx = existingUrlIdx[u];
-                    matchType = 'URL';
                     return true;
                 }
             });
@@ -665,7 +664,7 @@ function importFavorites(imported) {
             newCols.forEach(function(cid) {
                 if (curCols.indexOf(cid) < 0) { curCols.push(cid); changed = true; }
             });
-            if (changed) { existing.collectionIds = curCols; merged++; }
+            if (changed) { existing.collectionIds = curCols; existing.savedAt = now; merged++; }
         } else {
             // 新图片 → 添加
             var colIds = (item.collectionIds && item.collectionIds.length > 0) ? item.collectionIds.slice() : ['__default__'];
@@ -695,6 +694,7 @@ function importFavorites(imported) {
         updateCount();
         updateSearchCardFavButtons();
         if (W.state.user) pushFavorites();
+        if (W.state.activeTab === 'favorites') render();
         var parts = [];
         if (added > 0) parts.push('新增 ' + added + ' 张');
         if (merged > 0) parts.push('合并 ' + merged + ' 张到收藏夹');
