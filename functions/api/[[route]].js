@@ -312,20 +312,21 @@ async function handleSyncFavorites(request, env) {
   const cloudCollections = fullSettings.collections || [];
 
   // 按 id 合并：比较 Math.max(createdAt, deletedAt) 处理墓碑
+  // 不对名称去重（去重仅由前端创建时检查），避免墓碑条目阻塞同名重建
   const colMap = {};
   cloudCollections.forEach(c => { colMap[c.id] = c; });
+  const maxCloudTime = Object.values(colMap).reduce(
+    (max, c) => Math.max(max, c.createdAt || 0, c.deletedAt || 0), 0
+  );
   incomingCollections.forEach(c => {
     if (colMap[c.id]) {
       const incTime = Math.max(c.createdAt || 0, c.deletedAt || 0);
       const cloudTime = Math.max(colMap[c.id].createdAt || 0, colMap[c.id].deletedAt || 0);
       if (incTime > cloudTime) colMap[c.id] = c;
     } else {
-      // 检查同名冲突
-      var dup = false;
-      Object.values(colMap).forEach(function(existing) {
-        if (existing.name === c.name) dup = true;
-      });
-      if (!dup) colMap[c.id] = c;
+      // 传入独有且时间戳比云端最新还新 → 离线新建；否则丢弃
+      const incTime = Math.max(c.createdAt || 0, c.deletedAt || 0);
+      if (incTime > maxCloudTime) colMap[c.id] = c;
     }
   });
   // 清理过期墓碑（30 天）

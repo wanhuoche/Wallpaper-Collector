@@ -34,50 +34,59 @@ function saveAndPushCollections(list) {
     pushFavorites();
 }
 
-// 以云端为基准合并收藏夹列表（时间戳比较处理墓碑）
+// 以云端为基准合并收藏夹列表 — 对齐 mergeLocal 模式
 function mergeCollections(cloudCols) {
     if (!cloudCols || cloudCols.length === 0) return false;
 
-    var localMap = {};
-    W.state.collections.forEach(function(c) { localMap[c.id] = c; });
-
-    var changed = false;
+    var cloudMap = {};
+    var maxCloudTime = 0;
     cloudCols.forEach(function(c) {
-        if (localMap[c.id]) {
-            var cloudTime = Math.max(c.createdAt || 0, c.deletedAt || 0);
-            var localTime = Math.max(localMap[c.id].createdAt || 0, localMap[c.id].deletedAt || 0);
-            if (cloudTime > localTime) {
-                localMap[c.id] = c;
-                changed = true;
-            }
+        cloudMap[c.id] = c;
+        var ct = Math.max(c.createdAt || 0, c.deletedAt || 0);
+        if (ct > maxCloudTime) maxCloudTime = ct;
+    });
+
+    var localMap = {};
+    var addedCount = 0;
+    W.state.collections.forEach(function(c) {
+        var cloud = cloudMap[c.id];
+        if (cloud) {
+            var localTime = Math.max(c.createdAt || 0, c.deletedAt || 0);
+            var cloudTime = Math.max(cloud.createdAt || 0, cloud.deletedAt || 0);
+            localMap[c.id] = localTime > cloudTime ? c : cloud;
         } else {
-            // 检查同名冲突
-            var dup = false;
-            Object.values(localMap).forEach(function(lc) {
-                if (lc.name === c.name) dup = true;
-            });
-            if (!dup) {
+            // 本地独有：时间戳比云端最新还新 → 离线新建；否则 → 已在其他设备删除，丢弃
+            var localTime = Math.max(c.createdAt || 0, c.deletedAt || 0);
+            if (localTime > maxCloudTime) {
                 localMap[c.id] = c;
-                changed = true;
+                addedCount++;
             }
         }
     });
 
-    if (changed) {
-        // 清理过期墓碑（30 天）
-        var cutoff = Date.now() - (30 * 24 * 60 * 60 * 1000);
-        var merged = Object.values(localMap).filter(function(c) {
-            return !c.deletedAt || c.deletedAt > cutoff;
-        });
-        if (!merged.find(function(c) { return c.id === '__default__'; })) {
-            merged.unshift({ id: '__default__', name: '默认收藏夹', createdAt: Date.now() });
+    // 云端独有 → 加入本地
+    Object.keys(cloudMap).forEach(function(id) {
+        if (!localMap[id]) {
+            localMap[id] = cloudMap[id];
+            addedCount++;
         }
-        W.state.collections = merged;
-        saveCollections(merged);
-        populateCollectionSelect();
-        return true;
+    });
+
+    var merged = Object.values(localMap);
+    // 清理过期墓碑（30 天）
+    var cutoff = Date.now() - (30 * 24 * 60 * 60 * 1000);
+    merged = merged.filter(function(c) {
+        return !c.deletedAt || c.deletedAt > cutoff;
+    });
+    // 确保 __default__ 始终存在
+    if (!merged.find(function(c) { return c.id === '__default__'; })) {
+        merged.unshift({ id: '__default__', name: '默认收藏夹', createdAt: Date.now() });
     }
-    return false;
+
+    W.state.collections = merged;
+    saveCollections(merged);
+    populateCollectionSelect();
+    return addedCount > 0;
 }
 
 W.state.collections = loadCollections();
@@ -906,7 +915,7 @@ if (btnAddCol) {
     btnAddCol.addEventListener('click', function() {
         var name = (colNewName.value || '').trim();
         if (!name) return;
-        if (W.state.collections.find(function(c) { return c.name === name; })) {
+        if (W.state.collections.find(function(c) { return c.name === name && !c.deletedAt; })) {
             W.showToast('收藏夹名称已存在', 'error');
             return;
         }
