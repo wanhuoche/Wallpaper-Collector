@@ -453,7 +453,8 @@ function _updateMultiSelectUI() {
     var n = W.state.selectedPhotos.length;
     selectedCountEl.textContent = n > 0 ? '已选 ' + n + ' 张' : '已选 0 张';
     if (multiSelectToggle.checked) {
-        var allChecked = n === (W.state._displayPhotos || W.state.photos).length;
+        var list = W.state.activeTab === 'favorites' ? (W.state._displayFavorites || []) : (W.state._displayPhotos || W.state.photos || []);
+        var allChecked = list.length > 0 && n === list.length;
         document.getElementById('btnSelectAll').textContent = allChecked ? '取消全选' : '全选';
     }
 }
