@@ -324,7 +324,7 @@ function mergeLocal(cloudFavs) {
             var localTs = Math.max(f.savedAt || 0, f.deletedAt || 0);
             var cloudTs = Math.max(cloud.savedAt || 0, cloud.deletedAt || 0);
             localMap[key] = localTs >= cloudTs ? f : cloud;
-        } else if ((f.savedAt || 0) > maxCloudSavedAt) {
+        } else if ((f.savedAt || 0) >= maxCloudSavedAt) {
             localMap[key] = f;
             addedCount++;
         }
