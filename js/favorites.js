@@ -255,12 +255,14 @@ function cloudFetch(path, options) {
 // 单向推送本地收藏 + 收藏夹列表到云端
 function pushFavorites() {
     var token = W.auth && W.auth.getToken ? W.auth.getToken() : null;
+    console.log('[pushFavorites] user=' + !!W.state.user + ', token=' + !!token + ', favorites=' + W.state.favorites.length);
     if (!token) return Promise.resolve();
 
     return cloudFetch('/api/auth/favorites/sync', {
         method: 'POST',
         body: { favorites: W.state.favorites, collections: W.state.collections }
     }).then(function(data) {
+        console.log('[pushFavorites] 返回 favorites=' + (data.favorites ? data.favorites.length : 'null'));
         if (data.collections && data.collections.length > 0) {
             mergeCollections(data.collections);
         }
@@ -280,7 +282,7 @@ function syncWithCloud() {
         body: { favorites: W.state.favorites, collections: W.state.collections }
     }).then(function(data) {
         console.log('[syncWithCloud] 返回 favorites=' + (data.favorites ? data.favorites.length : 'null') + ', collections=' + (data.collections ? data.collections.length : 'null'));
-        if (data.favorites && data.favorites.length >= 0) {
+        if (data.favorites && data.favorites.length > 0) {
             console.log('[syncWithCloud] 覆盖本地为 ' + data.favorites.length + ' 条');
             setState('favorites', data.favorites);
             save(data.favorites);
@@ -709,7 +711,7 @@ function importFavorites(imported) {
                 preview: item.preview || '', alt: item.alt || '',
                 purity: item.purity || 'sfw', photographer: item.photographer || '',
                 sourceUrl: item.sourceUrl || '', source: item.source || '',
-                savedAt: item.savedAt || now, deletedAt: 0,
+                savedAt: now, deletedAt: 0,
                 collectionIds: colIds
             };
             W.state.favorites.push(fav);
