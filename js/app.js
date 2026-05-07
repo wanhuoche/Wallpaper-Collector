@@ -487,11 +487,7 @@ if (shortcutsToggle) {
     });
 }
 
-// ---- 初始化（异步加载存储）----
-(async function init() {
-    var settings = await W.storage.load();
-    if (settings) W.storage.applySettings(settings);
-
+function syncFilterTagUI() {
     D.purityTags.querySelectorAll('.purity-tag').forEach(function(tag) {
         tag.classList.toggle('active', tag.dataset.purity === W.state.selectedPurity);
     });
@@ -515,6 +511,13 @@ if (shortcutsToggle) {
             tag.classList.toggle('active', W.state.selectedCategories.indexOf(tag.dataset.category) >= 0);
         }
     });
+}
+
+// ---- 初始化（异步加载存储）----
+(async function init() {
+    var settings = await W.storage.load();
+    if (settings) W.storage.applySettings(settings);
+    syncFilterTagUI();
 
     var user = await W.auth.checkAuth();
     if (!user) {
@@ -527,6 +530,7 @@ if (shortcutsToggle) {
         W.favorites.syncWithCloud();
         var pulled = await W.storage.pullFromCloud();
         if (pulled) {
+            syncFilterTagUI();
             updateSourceIndicator();
         }
     }

@@ -330,14 +330,15 @@ export const storage = {
         localStorage.removeItem('wp_api_unsplash');
     },
 
-    /** 从云端拉取设置并合并到本地 */
+    /** 从云端拉取设置并合并到本地。筛选条件以本地为准（标签切换频繁，saveLocal 不同步云端） */
     pullFromCloud: async function() {
         var cloudSettings = await pullSettingsFromCloud();
         if (cloudSettings && Object.keys(cloudSettings).length > 0) {
-            var localPurity = localStorage.getItem('wp_purity');
-            if (localPurity && cloudSettings.purity && cloudSettings.purity !== localPurity) {
-                delete cloudSettings.purity;
-            }
+            // 筛选条件以本地为准，避免云端旧数据覆盖本地最新选择
+            delete cloudSettings.purity;
+            delete cloudSettings.categories;
+            delete cloudSettings.selectedRatio;
+            delete cloudSettings.selectedQuality;
             applySettings(cloudSettings);
             await idbSet('settings', collectSettings());
             return true;
