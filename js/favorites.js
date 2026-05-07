@@ -218,6 +218,8 @@ function render() {
     var html = '<div class="fav-export-bar">'
         + '<button class="fav-export-btn" id="btnExportJSON">📋 导出 JSON</button>'
         + '<button class="fav-export-btn" id="btnExportHTML">🖼 导出 HTML 画廊</button>'
+        + '<button class="fav-export-btn" id="btnImportJSON">📥 导入 JSON</button>'
+        + '<input type="file" id="importFileInput" accept=".json" style="display:none">'
         + '</div>';
     list.forEach(function(photo, idx) {
         var res = photo.width + '\xD7' + photo.height;
@@ -283,11 +285,33 @@ function render() {
         });
     });
 
-    // 导出按钮
+    // 导出/导入按钮
     var btnJSON = document.getElementById('btnExportJSON');
     var btnHTML = document.getElementById('btnExportHTML');
+    var btnImport = document.getElementById('btnImportJSON');
     if (btnJSON) btnJSON.addEventListener('click', exportJSON);
     if (btnHTML) btnHTML.addEventListener('click', exportHTML);
+    if (btnImport) btnImport.addEventListener('click', function() { document.getElementById('importFileInput').click(); });
+
+    var fileInput = document.getElementById('importFileInput');
+    if (fileInput) {
+        fileInput.addEventListener('change', function() {
+            var file = fileInput.files[0];
+            if (!file) return;
+            var reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    var data = JSON.parse(e.target.result);
+                    if (!Array.isArray(data)) throw new Error('格式错误');
+                    importFavorites(data);
+                } catch (err) {
+                    W.showToast('导入失败: JSON 格式不正确', 'error');
+                }
+            };
+            reader.readAsText(file);
+            fileInput.value = '';
+        });
+    }
 }
 
 function exportJSON() {
@@ -347,6 +371,43 @@ function exportHTML() {
     a.click(); a.remove();
     URL.revokeObjectURL(url);
     W.showToast('已导出 HTML 画廊 ✓', 'success');
+}
+
+function importFavorites(imported) {
+    var existingMap = {};
+    W.state.favorites.forEach(function(f) {
+        var key = f.full || f.medium || f.thumb;
+        if (key && !f.deletedAt) existingMap[key] = true;
+    });
+
+    var now = Date.now();
+    var added = 0;
+    imported.forEach(function(item) {
+        if (!item.full && !item.medium && !item.thumb) return;
+        var key = item.full || item.medium || item.thumb;
+        if (existingMap[key]) return;
+        existingMap[key] = true;
+        W.state.favorites.push({
+            id: item.id || (key ? key.slice(-16) : ''),
+            width: item.width || 0, height: item.height || 0,
+            full: item.full || '', medium: item.medium || '', thumb: item.thumb || '',
+            preview: item.preview || '', alt: item.alt || '',
+            purity: item.purity || 'sfw', photographer: item.photographer || '',
+            sourceUrl: item.sourceUrl || '', source: item.source || '',
+            savedAt: item.savedAt || now, deletedAt: 0
+        });
+        added++;
+    });
+
+    if (added > 0) {
+        save(W.state.favorites);
+        updateCount();
+        updateSearchCardFavButtons();
+        if (W.state.user) pushFavorites();
+        W.showToast('已导入 ' + added + ' 张，跳过 ' + (imported.length - added) + ' 张重复 ✓', 'success');
+    } else {
+        W.showToast('没有新图片可导入（全部重复）', '');
+    }
 }
 
 function openFavPreview(idx) {
