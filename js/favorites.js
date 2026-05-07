@@ -228,6 +228,7 @@ function render() {
             purityBadge = '<span class="card-badge sketchy">Sketchy</span>';
         }
         html += '<div class="image-card" data-fav-index="' + idx + '" title="' + res + '">'
+            + '<input type="checkbox" class="card-check" data-fav-index="' + idx + '">'
             + '<img src="' + photo.thumb + '" alt="' + escapeHtml(photo.alt) + '" loading="lazy"'
             + ' onerror="this.parentElement.innerHTML=\'<span style=font-size:40px;color:#d1d1d6;>🖼</span>\'" />'
             + ratioBadge + purityBadge
@@ -241,8 +242,22 @@ function render() {
 
     W.dom.resultsGrid.querySelectorAll('.image-card').forEach(function(card) {
         card.addEventListener('click', function(e) {
-            if (e.target.closest('.card-download') || e.target.closest('.card-fav')) return;
+            if (e.target.closest('.card-download') || e.target.closest('.card-fav') || e.target.closest('.card-check')) return;
             openFavPreview(parseInt(card.querySelector('.card-fav').dataset.favIndex));
+        });
+    });
+    W.dom.resultsGrid.querySelectorAll('.card-check').forEach(function(cb) {
+        cb.addEventListener('change', function(e) {
+            e.stopPropagation();
+            var idx = parseInt(cb.dataset.favIndex);
+            var photo = W.state._displayFavorites[idx];
+            if (!photo) return;
+            if (cb.checked) {
+                W.state.selectedPhotos.push(photo);
+            } else {
+                W.state.selectedPhotos = W.state.selectedPhotos.filter(function(p) { return p.id !== photo.id || (p.source || '') !== (photo.source || ''); });
+            }
+            W._updateMultiSelectUI();
         });
     });
     W.dom.resultsGrid.querySelectorAll('.card-download').forEach(function(btn) {
@@ -334,6 +349,9 @@ var tabs = document.querySelectorAll('.results-tab');
 
 function switchTab(tabName) {
     if (W.state.activeTab === tabName) return;
+    // 切标签退出多选
+    var msToggle = document.getElementById('multiSelectToggle');
+    if (msToggle && msToggle.checked) { msToggle.checked = false; W.state.multiSelect = false; W.state.selectedPhotos = []; document.body.classList.remove('multi-select-active'); }
     if (W.state.activeTab === 'search') {
         W.state._searchGridHTML = W.dom.resultsGrid.innerHTML;
     }
@@ -344,11 +362,15 @@ function switchTab(tabName) {
 
     if (tabName === 'favorites') {
         document.getElementById('hideFavedLabel').style.display = 'none';
+        document.getElementById('multiSelectLabel').style.display = W.state.favorites.filter(function(f) { return !f.deletedAt; }).length > 0 ? '' : 'none';
+        document.getElementById('multiSelectBar').style.display = 'none';
         W.dom.loadMoreWrap.style.display = 'none';
         W.dom.resultsCount.textContent = '收藏夹 · 共 ' + W.state.favorites.length + ' 张';
         render();
     } else {
         document.getElementById('hideFavedLabel').style.display = W.state.photos.length > 0 ? '' : 'none';
+        document.getElementById('multiSelectLabel').style.display = W.state.photos.length > 0 ? '' : 'none';
+        document.getElementById('multiSelectBar').style.display = 'none';
         if (typeof W.state._searchGridHTML === 'string') {
             W.dom.resultsGrid.innerHTML = W.state._searchGridHTML;
             W.attachCardListeners();

@@ -94,6 +94,13 @@
             </div>
             <span class="results-count" id="resultsCount">请先设置 API 密钥并选择图源</span>
             <label class="hide-faved-toggle" id="hideFavedLabel" style="display:none"><input type="checkbox" id="hideFaved"> 隐藏已收藏</label>
+            <label class="multi-select-toggle" id="multiSelectLabel" style="display:none"><input type="checkbox" id="multiSelectToggle"> 多选</label>
+        </div>
+        <div class="multi-select-bar" id="multiSelectBar" style="display:none">
+            <button class="ms-btn" id="btnSelectAll">全选</button>
+            <span class="ms-count" id="selectedCount">已选 0 张</span>
+            <button class="ms-btn" id="btnCopyLinks">复制链接</button>
+            <button class="ms-btn ms-btn-primary" id="btnBatchDownload">打包下载 .zip</button>
         </div>
         <div class="results-grid" id="resultsGrid"></div>
         <div class="scroll-sentinel" id="scrollSentinel"></div>

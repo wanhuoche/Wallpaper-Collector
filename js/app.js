@@ -22,6 +22,8 @@ W.state = {
     isLoading: false,
     modalPhoto: null,
     hideFaved: false,
+    multiSelect: false,
+    selectedPhotos: [],
     _ready: false,
 };
 
@@ -431,6 +433,214 @@ if (hideFavedCheckbox) {
         W.state.photos = W.state.allPhotos;
         if (typeof W._renderResults === 'function') W._renderResults();
     });
+}
+
+// ---- 多选模式 ----
+var multiSelectToggle = document.getElementById('multiSelectToggle');
+var multiSelectBar = document.getElementById('multiSelectBar');
+var selectedCountEl = document.getElementById('selectedCount');
+var multiSelectLabel = document.getElementById('multiSelectLabel');
+
+function exitMultiSelect() {
+    multiSelectToggle.checked = false;
+    W.state.multiSelect = false;
+    W.state.selectedPhotos = [];
+    multiSelectBar.style.display = 'none';
+    document.body.classList.remove('multi-select-active');
+}
+
+function _updateMultiSelectUI() {
+    var n = W.state.selectedPhotos.length;
+    selectedCountEl.textContent = n > 0 ? '已选 ' + n + ' 张' : '已选 0 张';
+    if (multiSelectToggle.checked) {
+        var allChecked = n === (W.state._displayPhotos || W.state.photos).length;
+        document.getElementById('btnSelectAll').textContent = allChecked ? '取消全选' : '全选';
+    }
+}
+W._updateMultiSelectUI = _updateMultiSelectUI;
+
+if (multiSelectToggle) {
+    multiSelectToggle.addEventListener('change', function() {
+        W.state.multiSelect = multiSelectToggle.checked;
+        W.state.selectedPhotos = [];
+        if (multiSelectToggle.checked) {
+            multiSelectBar.style.display = 'flex';
+            document.body.classList.add('multi-select-active');
+            // hideFaved 和多选互斥
+            if (hideFavedCheckbox && hideFavedCheckbox.checked) {
+                hideFavedCheckbox.checked = false;
+                setState('hideFaved', false);
+                W.state.photos = W.state.allPhotos;
+                W._renderResults();
+            }
+        } else {
+            multiSelectBar.style.display = 'none';
+            document.body.classList.remove('multi-select-active');
+        }
+        // 刷新卡片以显示/隐藏 checkbox
+        if (W.state.activeTab === 'search') {
+            W._renderResults();
+        } else if (W.state.activeTab === 'favorites') {
+            W.favorites.render();
+        }
+        _updateMultiSelectUI();
+    });
+}
+
+// 全选 / 取消全选
+var btnSelectAll = document.getElementById('btnSelectAll');
+if (btnSelectAll) {
+    btnSelectAll.addEventListener('click', function() {
+        var list = W.state._displayPhotos || W.state.photos;
+        var allChecked = W.state.selectedPhotos.length === list.length;
+        if (allChecked) {
+            W.state.selectedPhotos = [];
+        } else {
+            W.state.selectedPhotos = list.slice();
+        }
+        // 同步 checkbox 状态
+        document.querySelectorAll('.card-check').forEach(function(cb) {
+            cb.checked = !allChecked;
+        });
+        _updateMultiSelectUI();
+    });
+}
+
+// 复制链接
+var btnCopyLinks = document.getElementById('btnCopyLinks');
+if (btnCopyLinks) {
+    btnCopyLinks.addEventListener('click', function() {
+        if (W.state.selectedPhotos.length === 0) { W.showToast('请先勾选图片', ''); return; }
+        var urls = W.state.selectedPhotos.map(function(p) { return p.full || p.medium || p.thumb; }).join('\n');
+        navigator.clipboard.writeText(urls).then(function() {
+            W.showToast('已复制 ' + W.state.selectedPhotos.length + ' 个链接 ✓', 'success');
+        }).catch(function() {
+            W.showToast('复制失败，请检查剪贴板权限', 'error');
+        });
+    });
+}
+
+// 打包下载
+var btnBatchDownload = document.getElementById('btnBatchDownload');
+if (btnBatchDownload) {
+    btnBatchDownload.addEventListener('click', function() {
+        var photos = W.state.selectedPhotos.slice();
+        if (photos.length === 0) { W.showToast('请先勾选图片', ''); return; }
+        batchDownloadZip(photos);
+    });
+}
+
+var _batchAbortController = null;
+async function batchDownloadZip(photos) {
+    var total = photos.length;
+    var btn = document.getElementById('btnBatchDownload');
+    btn.disabled = true;
+    btn.textContent = '加载中...';
+
+    // 动态加载 JSZip
+    if (typeof JSZip === 'undefined') {
+        try {
+            await new Promise(function(resolve, reject) {
+                var s = document.createElement('script');
+                s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+                s.onload = resolve;
+                s.onerror = function() { reject(new Error('JSZip 加载失败')); };
+                document.head.appendChild(s);
+            });
+        } catch (e) {
+            W.showToast('打包库加载失败，请检查网络', 'error');
+            btn.disabled = false;
+            btn.textContent = '打包下载 .zip';
+            return;
+        }
+    }
+
+    _batchAbortController = new AbortController();
+    var signal = _batchAbortController.signal;
+    var zip = new JSZip();
+    var done = 0;
+    var failed = 0;
+
+    // 获取代理 URL
+    var proxyBase = '';
+    try {
+        var cfg = W.getCurrentConfig();
+        if (cfg && cfg.baseUrl && cfg.baseUrl.indexOf('workers.dev') > -1) proxyBase = cfg.baseUrl;
+    } catch (e) {}
+
+    // 并发控制：一次最多 3 个
+    var concurrency = 3;
+    var queue = photos.slice();
+    var activeCount = 0;
+
+    function updateProgress() {
+        btn.textContent = '打包中 ' + done + '/' + total;
+    }
+
+    async function fetchOne(photo) {
+        var url = photo.full || photo.medium || photo.preview;
+        if (!url) { failed++; return; }
+        var urls = [url];
+        if (proxyBase) urls.push(proxyBase + '?url=' + encodeURIComponent(url));
+        for (var i = 0; i < urls.length; i++) {
+            if (signal.aborted) return;
+            try {
+                var resp = await fetch(urls[i], { signal: signal });
+                var blob = await resp.blob();
+                var ext = blob.type.split('/')[1] || 'jpg';
+                var name = (photo.alt || 'wallpaper').replace(/[\/\\:*?"<>|]/g, '').replace(/\s+/g, '_').slice(0, 40).trim();
+                var filename = name + '_' + photo.width + 'x' + photo.height + '_' + photo.id + '.' + ext;
+                zip.file(filename, blob);
+                done++;
+                updateProgress();
+                return;
+            } catch (e) {
+                if (e.name === 'AbortError') return;
+                if (i >= urls.length - 1) { failed++; }
+            }
+        }
+    }
+
+    async function worker() {
+        while (queue.length > 0 && !signal.aborted) {
+            var photo = queue.shift();
+            activeCount++;
+            await fetchOne(photo);
+            activeCount--;
+        }
+    }
+
+    updateProgress();
+    var workers = [];
+    for (var i = 0; i < concurrency; i++) workers.push(worker());
+    await Promise.all(workers);
+
+    btn.textContent = '生成中...';
+    try {
+        if (done > 0) {
+            var zipBlob = await zip.generateAsync({ type: 'blob' });
+            var blobUrl = URL.createObjectURL(zipBlob);
+            var a = document.createElement('a');
+            a.href = blobUrl;
+            a.download = '壁纸批量下载_' + new Date().toISOString().slice(0, 10) + '.zip';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(blobUrl);
+            var msg = '打包完成 ✓ (' + done + ' 张';
+            if (failed > 0) msg += '，' + failed + ' 张失败';
+            msg += ')';
+            W.showToast(msg, done === total ? 'success' : '');
+        } else {
+            W.showToast('所选图片均无法下载', 'error');
+        }
+    } catch (e) {
+        W.showToast('打包失败: ' + e.message, 'error');
+    }
+    btn.disabled = false;
+    btn.textContent = '打包下载 .zip';
+    _batchAbortController = null;
+    exitMultiSelect();
 }
 
 // ---- 快捷键 ----

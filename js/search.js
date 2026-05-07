@@ -397,6 +397,7 @@ function renderResults() {
         photos = photos.filter(function(p) { return !W.favorites.isFavorite(p.id, W.state.source); });
     }
     document.getElementById('hideFavedLabel').style.display = W.state.activeTab === 'search' && W.state.photos.length > 0 ? '' : 'none';
+    document.getElementById('multiSelectLabel').style.display = W.state.activeTab === 'search' && W.state.photos.length > 0 ? '' : 'none';
 
     if (photos.length === 0) {
         var msg = W.state.hideFaved ? '当前筛选下所有图片都已收藏，取消"隐藏已收藏"查看更多' : '没有找到匹配的壁纸，试试其他关键词或放宽筛选';
@@ -420,6 +421,7 @@ function renderResults() {
         var favClass = isFav ? ' active' : '';
         var favIcon = isFav ? '♥' : '♡';
         html += '<div class="image-card" data-index="' + idx + '" title="' + res + '">'
+            + '<input type="checkbox" class="card-check" data-index="' + idx + '">'
             + '<img src="' + photo.thumb + '" alt="' + escapeHtml(photo.alt) + '" loading="lazy"'
             + ' onerror="this.parentElement.innerHTML=\'<span style=font-size:40px;color:#d1d1d6;>🖼</span>\'" />'
             + ratioBadge + purityBadge
@@ -438,8 +440,22 @@ function attachCardListeners() {
     var list = W.state._displayPhotos || W.state.photos;
     W.dom.resultsGrid.querySelectorAll('.image-card').forEach(function(card) {
         card.addEventListener('click', function(e) {
-            if (e.target.closest('.card-download') || e.target.closest('.card-fav')) return;
+            if (e.target.closest('.card-download') || e.target.closest('.card-fav') || e.target.closest('.card-check')) return;
             openPreview(parseInt(card.dataset.index));
+        });
+    });
+    W.dom.resultsGrid.querySelectorAll('.card-check').forEach(function(cb) {
+        cb.addEventListener('change', function(e) {
+            e.stopPropagation();
+            var idx = parseInt(cb.dataset.index);
+            var photo = list[idx];
+            if (!photo) return;
+            if (cb.checked) {
+                W.state.selectedPhotos.push(photo);
+            } else {
+                W.state.selectedPhotos = W.state.selectedPhotos.filter(function(p) { return p.id !== photo.id || (p.source || W.state.source) !== (photo.source || W.state.source); });
+            }
+            W._updateMultiSelectUI();
         });
     });
     W.dom.resultsGrid.querySelectorAll('.card-download').forEach(function(btn) {
