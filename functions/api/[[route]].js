@@ -227,7 +227,20 @@ async function handleGetFavorites(request, env) {
   ).bind(userId).all();
 
   const list = rows.results.map(r => JSON.parse(r.photo_data));
-  return json({ favorites: list });
+
+  // 读取收藏夹列表
+  let collections = [];
+  const settingsRow = await env.DB.prepare(
+    'SELECT settings_json FROM settings WHERE user_id = ?'
+  ).bind(userId).first();
+  if (settingsRow) {
+    try {
+      const s = JSON.parse(settingsRow.settings_json);
+      collections = s.collections || [];
+    } catch (e) {}
+  }
+
+  return json({ favorites: list, collections: collections });
 }
 
 async function handleSyncFavorites(request, env) {
@@ -284,7 +297,48 @@ async function handleSyncFavorites(request, env) {
     }
   }
 
-  return json({ favorites: allFavs });
+  // ── 收藏夹列表合并 ──
+  const incomingCollections = body.collections || [];
+  let mergedCollections = [];
+
+  // 读取已有设置（收藏夹列表存 settings_json.collections）
+  const settingsRow = await env.DB.prepare(
+    'SELECT settings_json FROM settings WHERE user_id = ?'
+  ).bind(userId).first();
+  let fullSettings = {};
+  if (settingsRow) {
+    try { fullSettings = JSON.parse(settingsRow.settings_json); } catch (e) {}
+  }
+  const cloudCollections = fullSettings.collections || [];
+
+  // 按 id 合并（保留 createdAt 较新的），按 name 去重
+  const colMap = {};
+  cloudCollections.forEach(c => { colMap[c.id] = c; });
+  incomingCollections.forEach(c => {
+    if (colMap[c.id]) {
+      if ((c.createdAt || 0) > (colMap[c.id].createdAt || 0)) colMap[c.id] = c;
+    } else {
+      // 检查同名冲突
+      var dup = false;
+      Object.values(colMap).forEach(function(existing) {
+        if (existing.name === c.name) dup = true;
+      });
+      if (!dup) colMap[c.id] = c;
+    }
+  });
+  mergedCollections = Object.values(colMap);
+
+  // 确保 __default__ 始终存在
+  if (!mergedCollections.find(function(c) { return c.id === '__default__'; })) {
+    mergedCollections.unshift({ id: '__default__', name: '默认收藏夹', createdAt: Date.now() });
+  }
+
+  fullSettings.collections = mergedCollections;
+  await env.DB.prepare(
+    'INSERT OR REPLACE INTO settings (user_id, settings_json, updated_at) VALUES (?, ?, datetime(\'now\'))'
+  ).bind(userId, JSON.stringify(fullSettings)).run();
+
+  return json({ favorites: allFavs, collections: mergedCollections });
 }
 
 // ═══════════════════════════════════════
@@ -332,7 +386,10 @@ async function handleSyncSettings(request, env) {
   const merged = { ...localSettings };
   if (row) {
     Object.keys(cloudSettings).forEach(k => {
-      if (k === 'apiKeys' && cloudSettings.apiKeys && localSettings.apiKeys) {
+      if (k === 'collections') {
+        // 收藏夹列表由 favorites 同步管理，设置同步不覆盖
+        merged.collections = cloudSettings.collections;
+      } else if (k === 'apiKeys' && cloudSettings.apiKeys && localSettings.apiKeys) {
         merged.apiKeys = { ...localSettings.apiKeys, ...cloudSettings.apiKeys };
       } else {
         merged[k] = cloudSettings[k];

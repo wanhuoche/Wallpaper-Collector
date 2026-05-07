@@ -22,6 +22,52 @@ function saveCollections(list) {
     try { localStorage.setItem(COLLECTIONS_KEY, JSON.stringify(list)); } catch (e) {}
 }
 
+// 保存收藏夹列表并推送到云端
+function saveAndPushCollections(list) {
+    saveCollections(list);
+    pushFavorites();
+}
+
+// 以云端为基准合并收藏夹列表
+function mergeCollections(cloudCols) {
+    if (!cloudCols || cloudCols.length === 0) return false;
+
+    var localMap = {};
+    W.state.collections.forEach(function(c) { localMap[c.id] = c; });
+
+    var changed = false;
+    cloudCols.forEach(function(c) {
+        if (localMap[c.id]) {
+            if ((c.createdAt || 0) > (localMap[c.id].createdAt || 0)) {
+                localMap[c.id] = c;
+                changed = true;
+            }
+        } else {
+            // 检查同名冲突
+            var dup = false;
+            Object.values(localMap).forEach(function(lc) {
+                if (lc.name === c.name) dup = true;
+            });
+            if (!dup) {
+                localMap[c.id] = c;
+                changed = true;
+            }
+        }
+    });
+
+    if (changed) {
+        var merged = Object.values(localMap);
+        if (!merged.find(function(c) { return c.id === '__default__'; })) {
+            merged.unshift({ id: '__default__', name: '默认收藏夹', createdAt: Date.now() });
+        }
+        W.state.collections = merged;
+        saveCollections(merged);
+        populateCollectionSelect();
+        return true;
+    }
+    return false;
+}
+
 W.state.collections = loadCollections();
 W.state.activeCollection = '__all__';
 
@@ -32,14 +78,14 @@ function getActiveCollections() {
 function createCollection(name) {
     var id = 'col_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
     W.state.collections.push({ id: id, name: name, createdAt: Date.now() });
-    saveCollections(W.state.collections);
+    saveAndPushCollections(W.state.collections);
     populateCollectionSelect();
     return id;
 }
 
 function renameCollection(id, newName) {
     var col = W.state.collections.find(function(c) { return c.id === id; });
-    if (col) { col.name = newName; saveCollections(W.state.collections); populateCollectionSelect(); }
+    if (col) { col.name = newName; saveAndPushCollections(W.state.collections); populateCollectionSelect(); }
 }
 
 function deleteCollection(id) {
@@ -53,7 +99,7 @@ function deleteCollection(id) {
     });
     save(W.state.favorites);
     W.state.collections = W.state.collections.filter(function(c) { return c.id !== id; });
-    saveCollections(W.state.collections);
+    saveAndPushCollections(W.state.collections);
     populateCollectionSelect();
     if (W.state.activeCollection === id) {
         W.state.activeCollection = '__all__';
@@ -178,14 +224,18 @@ function cloudFetch(path, options) {
     });
 }
 
-// 单向推送本地收藏到云端，不覆盖本地状态
+// 单向推送本地收藏 + 收藏夹列表到云端
 function pushFavorites() {
     var token = W.auth && W.auth.getToken ? W.auth.getToken() : null;
     if (!token) return Promise.resolve();
 
     return cloudFetch('/api/auth/favorites/sync', {
         method: 'POST',
-        body: { favorites: W.state.favorites }
+        body: { favorites: W.state.favorites, collections: W.state.collections }
+    }).then(function(data) {
+        if (data.collections && data.collections.length > 0) {
+            mergeCollections(data.collections);
+        }
     }).catch(function(err) {
         console.warn('收藏推送失败:', err.message);
     });
@@ -198,7 +248,7 @@ function syncWithCloud() {
 
     return cloudFetch('/api/auth/favorites/sync', {
         method: 'POST',
-        body: { favorites: W.state.favorites }
+        body: { favorites: W.state.favorites, collections: W.state.collections }
     }).then(function(data) {
         if (data.favorites && data.favorites.length >= 0) {
             setState('favorites', data.favorites);
@@ -206,6 +256,9 @@ function syncWithCloud() {
             updateCount();
             if (W.state.activeTab === 'favorites') render();
             if (W.state.activeTab === 'search') updateSearchCardFavButtons();
+        }
+        if (data.collections && data.collections.length > 0) {
+            mergeCollections(data.collections);
         }
     }).catch(function(err) {
         console.warn('收藏同步失败:', err.message);
@@ -257,18 +310,25 @@ function mergeLocal(cloudFavs) {
     return addedCount > 0;
 }
 
-// init 时先从云端拉取收藏列表
+// init 时先从云端拉取收藏列表 + 收藏夹列表
 function pullFromCloud() {
     var token = W.auth && W.auth.getToken ? W.auth.getToken() : null;
     if (!token) return Promise.resolve();
 
     return cloudFetch('/api/auth/favorites', { method: 'GET' })
         .then(function(data) {
-            if (data.favorites && data.favorites.length > 0) {
-                mergeLocal(data.favorites);
+            var hasFavs = data.favorites && data.favorites.length > 0;
+            var hasCols = data.collections && data.collections.length > 0;
+            if (hasFavs) mergeLocal(data.favorites);
+            if (hasCols) mergeCollections(data.collections);
+            if (hasFavs || hasCols) {
                 return cloudFetch('/api/auth/favorites/sync', {
                     method: 'POST',
-                    body: { favorites: W.state.favorites }
+                    body: { favorites: W.state.favorites, collections: W.state.collections }
+                }).then(function(syncData) {
+                    if (syncData.collections && syncData.collections.length > 0) {
+                        mergeCollections(syncData.collections);
+                    }
                 });
             }
         }).catch(function(err) {
