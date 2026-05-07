@@ -386,3 +386,5 @@ export const storage = {
 
 // backward compat
 W.storage = storage;
+
+export { idbGet, idbSet };

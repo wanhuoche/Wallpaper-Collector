@@ -1,4 +1,5 @@
 import { setState } from './state.js';
+import { idbGet, idbSet } from './storage.js';
 
 const W = window.WallpaperApp;
 var toastTimer = null;
@@ -283,51 +284,60 @@ function filterByQuality(photos) {
     });
 }
 
-// ── 翻译缓存 ──
-var TRANS_CACHE_KEY = 'wp_trans_cache';
+// ── 翻译缓存 (IndexedDB，重启不丢) ──
+var CACHE_KEY = 'trans_cache';
 var MAX_CACHE_SIZE = 200;
-var transCache = loadTransCache();
+var transCache = null;
 
-function loadTransCache() {
+async function ensureCache() {
+    if (transCache) return transCache;
     try {
-        var raw = localStorage.getItem(TRANS_CACHE_KEY);
-        if (raw) {
-            var entries = JSON.parse(raw);
-            return new Map(entries);
+        var raw = await idbGet(CACHE_KEY);
+        if (raw) { transCache = new Map(raw); return transCache; }
+    } catch (e) {}
+    // 从 localStorage 迁移旧缓存
+    try {
+        var old = localStorage.getItem('wp_trans_cache');
+        if (old) {
+            transCache = new Map(JSON.parse(old));
+            localStorage.removeItem('wp_trans_cache');
+            await saveTransCache();
+            return transCache;
         }
     } catch (e) {}
-    return new Map();
+    transCache = new Map();
+    return transCache;
 }
 
-function saveTransCache() {
+async function saveTransCache() {
     try {
-        var entries = Array.from(transCache);
-        localStorage.setItem(TRANS_CACHE_KEY, JSON.stringify(entries));
+        await idbSet(CACHE_KEY, Array.from(transCache));
     } catch (e) {}
 }
 
-function cacheGet(key) {
-    if (!transCache.has(key)) return null;
-    var value = transCache.get(key);
+async function cacheGet(key) {
+    var c = await ensureCache();
+    if (!c.has(key)) return null;
+    var value = c.get(key);
     // LRU: move to end
-    transCache.delete(key);
-    transCache.set(key, value);
+    c.delete(key);
+    c.set(key, value);
     return value;
 }
 
-function cacheSet(key, value) {
-    if (transCache.has(key)) transCache.delete(key);
-    else if (transCache.size >= MAX_CACHE_SIZE) {
-        // delete oldest (first) entry
-        var first = transCache.keys().next().value;
-        transCache.delete(first);
+async function cacheSet(key, value) {
+    var c = await ensureCache();
+    if (c.has(key)) c.delete(key);
+    else if (c.size >= MAX_CACHE_SIZE) {
+        var first = c.keys().next().value;
+        c.delete(first);
     }
-    transCache.set(key, value);
+    c.set(key, value);
     saveTransCache();
 }
 
 async function translateToEnglish(text) {
-    var cached = cacheGet(text);
+    var cached = await cacheGet(text);
     if (cached) { console.log('[翻译缓存] 命中 — "' + text + '" → "' + cached + '"'); return cached; }
     console.log('[翻译缓存] 未命中 — "' + text + '" 需调 API');
 
@@ -339,7 +349,7 @@ async function translateToEnglish(text) {
         if (data.responseStatus === 200 && data.responseData && data.responseData.translatedText) {
             var translated = data.responseData.translatedText;
             if (translated.toLowerCase() !== text.toLowerCase()) {
-                cacheSet(text, translated);
+                await cacheSet(text, translated);
                 return translated;
             }
         }
@@ -347,7 +357,7 @@ async function translateToEnglish(text) {
         console.warn('翻译失败:', e);
     }
     // cache negative results too (avoid repeated failed API calls for same text)
-    cacheSet(text, text);
+    await cacheSet(text, text);
     return text;
 }
 
