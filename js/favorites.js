@@ -215,7 +215,10 @@ function render() {
             + '</div>';
         return;
     }
-    var html = '';
+    var html = '<div class="fav-export-bar">'
+        + '<button class="fav-export-btn" id="btnExportJSON">📋 导出 JSON</button>'
+        + '<button class="fav-export-btn" id="btnExportHTML">🖼 导出 HTML 画廊</button>'
+        + '</div>';
     list.forEach(function(photo, idx) {
         var res = photo.width + '\xD7' + photo.height;
         var ratioBadge = photo.ratioMatch && photo.ratioMatch !== 'all'
@@ -279,6 +282,71 @@ function render() {
             }
         });
     });
+
+    // 导出按钮
+    var btnJSON = document.getElementById('btnExportJSON');
+    var btnHTML = document.getElementById('btnExportHTML');
+    if (btnJSON) btnJSON.addEventListener('click', exportJSON);
+    if (btnHTML) btnHTML.addEventListener('click', exportHTML);
+}
+
+function exportJSON() {
+    var list = W.state.favorites.filter(function(f) { return !f.deletedAt; });
+    var data = list.map(function(f) {
+        return {
+            id: f.id, width: f.width, height: f.height,
+            full: f.full, medium: f.medium, thumb: f.thumb, preview: f.preview,
+            alt: f.alt, purity: f.purity, photographer: f.photographer,
+            sourceUrl: f.sourceUrl, source: f.source, savedAt: f.savedAt
+        };
+    });
+    var blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = '壁纸收藏_' + new Date().toISOString().slice(0, 10) + '.json';
+    document.body.appendChild(a);
+    a.click(); a.remove();
+    URL.revokeObjectURL(url);
+    W.showToast('已导出 ' + data.length + ' 条收藏 ✓', 'success');
+}
+
+function exportHTML() {
+    var list = W.state.favorites.filter(function(f) { return !f.deletedAt; });
+    var items = list.map(function(f) {
+        var src = f.medium || f.thumb || '';
+        return '      <div class="item">'
+            + '<img src="' + escapeHtml(src) + '" loading="lazy" referrerpolicy="no-referrer" />'
+            + '<div class="info">'
+            + '<span class="res">' + f.width + '\xD7' + f.height + '</span>'
+            + (f.photographer ? '<span class="author">' + escapeHtml(f.photographer) + '</span>' : '')
+            + '</div></div>';
+    }).join('\n');
+
+    var html = '<!DOCTYPE html>\n<html lang="zh-CN">\n<head>\n<meta charset="UTF-8">\n<meta name="viewport" content="width=device-width,initial-scale=1">\n<title>壁纸收藏</title>\n<style>\n'
+        + '*{margin:0;padding:0;box-sizing:border-box}'
+        + 'body{background:#000;color:#fff;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",sans-serif;padding:24px}'
+        + 'h1{text-align:center;font-size:24px;font-weight:600;margin-bottom:4px}'
+        + '.sub{text-align:center;font-size:13px;color:#86868b;margin-bottom:32px}'
+        + '.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;max-width:1400px;margin:0 auto}'
+        + '.item{background:#1c1c1e;border-radius:12px;overflow:hidden}'
+        + '.item img{width:100%;display:block;aspect-ratio:16/10;object-fit:cover}'
+        + '.info{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;font-size:13px;color:#aaa}'
+        + '@media(max-width:640px){body{padding:12px}.grid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}}'
+        + '</style>\n</head>\n<body>\n'
+        + '<h1>🖼 壁纸收藏</h1>\n'
+        + '<p class="sub">共 ' + list.length + ' 张 · ' + new Date().toISOString().slice(0, 10) + '</p>\n'
+        + '<div class="grid">\n' + items + '\n</div>\n</body>\n</html>';
+
+    var blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = '壁纸收藏_' + new Date().toISOString().slice(0, 10) + '.html';
+    document.body.appendChild(a);
+    a.click(); a.remove();
+    URL.revokeObjectURL(url);
+    W.showToast('已导出 HTML 画廊 ✓', 'success');
 }
 
 function openFavPreview(idx) {
