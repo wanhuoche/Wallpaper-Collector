@@ -448,7 +448,7 @@ var colSelect = document.getElementById('collectionSelect');
 if (colSelect) {
     colSelect.addEventListener('change', function() {
         W.state.activeCollection = colSelect.value;
-        if (W.state.activeTab === 'favorites') render();
+        if (W.state.activeTab === 'favorites') { updateFavResultsCount(); render(); }
     });
 }
 
@@ -752,6 +752,19 @@ function updateCount() {
     }
 }
 
+function updateFavResultsCount() {
+    var ac = W.state.activeCollection || '__all__';
+    var totalCount = W.state.favorites.filter(function(f) { return !f.deletedAt; }).length;
+    if (ac !== '__all__') {
+        var filtered = W.state.favorites.filter(function(f) { return !f.deletedAt && (f.collectionIds || ['__default__']).indexOf(ac) >= 0; });
+        var col = W.state.collections.find(function(c) { return c.id === ac; });
+        var name = col ? col.name : ac;
+        W.dom.resultsCount.textContent = '收藏夹 · 「' + name + '」· ' + filtered.length + ' / 共 ' + totalCount + ' 张';
+    } else {
+        W.dom.resultsCount.textContent = '收藏夹 · 共 ' + totalCount + ' 张';
+    }
+}
+
 function updateModalFavButton() {
     var btn = W.dom.modalFav;
     if (!btn || !W.state.modalPhoto) return;
@@ -808,7 +821,7 @@ function switchTab(tabName) {
         document.getElementById('collectionFilter').style.display = '';
         populateCollectionSelect();
         W.dom.loadMoreWrap.style.display = 'none';
-        W.dom.resultsCount.textContent = '收藏夹 · 共 ' + W.state.favorites.filter(function(f) { return !f.deletedAt; }).length + ' 张';
+        updateFavResultsCount();
         render();
     } else {
         document.getElementById('hideFavedLabel').style.display = W.state.photos.length > 0 ? '' : 'none';

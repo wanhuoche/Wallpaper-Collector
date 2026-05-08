@@ -213,19 +213,59 @@ body {
 }
 .results-count { font-size: 14px; color: var(--text-secondary); font-weight: 500; }
 .hide-faved-toggle {
-    font-size: 13px; color: var(--text-secondary); cursor: pointer;
-    display: flex; align-items: center; gap: 4px; user-select: none;
+    font-size: 12px; color: var(--text-secondary); cursor: pointer;
+    display: inline-flex; align-items: center; gap: 7px; user-select: none;
     white-space: nowrap;
+    background: var(--bg); border: 1px solid var(--border);
+    padding: 5px 12px 5px 8px; border-radius: 18px;
+    transition: border-color 0.2s ease, background 0.2s ease, color 0.2s ease;
 }
-.hide-faved-toggle input { cursor: pointer; }
+.hide-faved-toggle:hover { border-color: var(--accent); color: var(--text); }
+.hide-faved-toggle:has(input:checked) { background: rgba(0,122,255,0.08); border-color: var(--accent); color: var(--accent); }
+.hide-faved-toggle input {
+    appearance: none; -webkit-appearance: none;
+    width: 28px; height: 16px; border-radius: 8px;
+    background: #d1d1d6; cursor: pointer;
+    position: relative; transition: background 0.2s ease;
+    flex-shrink: 0; margin: 0;
+}
+.hide-faved-toggle input::after {
+    content: ''; position: absolute;
+    top: 2px; left: 2px; width: 12px; height: 12px;
+    border-radius: 50%; background: #fff;
+    transition: transform 0.2s ease;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.15);
+}
+.hide-faved-toggle input:checked { background: var(--accent); }
+.hide-faved-toggle input:checked::after { transform: translateX(12px); }
 
 /* 多选模式 */
 .multi-select-toggle {
-    font-size: 13px; color: var(--text-secondary); cursor: pointer;
-    display: flex; align-items: center; gap: 4px; user-select: none;
+    font-size: 12px; color: var(--text-secondary); cursor: pointer;
+    display: inline-flex; align-items: center; gap: 7px; user-select: none;
     white-space: nowrap;
+    background: var(--bg); border: 1px solid var(--border);
+    padding: 5px 12px 5px 8px; border-radius: 18px;
+    transition: border-color 0.2s ease, background 0.2s ease, color 0.2s ease;
 }
-.multi-select-toggle input { cursor: pointer; }
+.multi-select-toggle:hover { border-color: var(--accent); color: var(--text); }
+.multi-select-toggle:has(input:checked) { background: rgba(0,122,255,0.08); border-color: var(--accent); color: var(--accent); }
+.multi-select-toggle input {
+    appearance: none; -webkit-appearance: none;
+    width: 28px; height: 16px; border-radius: 8px;
+    background: #d1d1d6; cursor: pointer;
+    position: relative; transition: background 0.2s ease;
+    flex-shrink: 0; margin: 0;
+}
+.multi-select-toggle input::after {
+    content: ''; position: absolute;
+    top: 2px; left: 2px; width: 12px; height: 12px;
+    border-radius: 50%; background: #fff;
+    transition: transform 0.2s ease;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.15);
+}
+.multi-select-toggle input:checked { background: var(--accent); }
+.multi-select-toggle input:checked::after { transform: translateX(12px); }
 
 .multi-select-bar {
     display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
@@ -256,31 +296,38 @@ body.multi-select-active .card-check { display: block; }
 /* 导出收藏夹 */
 .fav-export-bar { display: flex; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
 .fav-export-btn {
-    height: 34px; padding: 0 16px; border-radius: 8px;
-    border: 1px solid var(--border); background: transparent;
-    color: var(--text); font-size: 13px; font-family: var(--font);
-    cursor: pointer; transition: var(--transition);
+    height: 34px; padding: 0 16px; border-radius: 17px;
+    border: 1.5px solid var(--border); background: var(--card-bg);
+    color: var(--text); font-size: 13px; font-family: var(--font); font-weight: 500;
+    cursor: pointer; transition: border-color 0.2s ease, background 0.2s ease, color 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
 }
-.fav-export-btn:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+.fav-export-btn:hover { background: var(--accent-gradient); color: #fff; border-color: transparent; box-shadow: 0 2px 8px rgba(0,122,255,0.2); transform: translateY(-1px); }
+.fav-export-btn:active { transform: scale(0.96); transition: transform 0.08s ease; }
 
 /* 收藏夹筛选 */
-.collection-filter { display: flex; align-items: center; gap: 6px; }
+.collection-filter { display: flex; align-items: center; gap: 8px; }
 .col-filter-label { font-size: 14px; }
 .col-select {
-    height: 32px; padding: 0 28px 0 10px; border-radius: 8px;
-    border: 1px solid var(--border); background: var(--card-bg);
-    color: var(--text); font-size: 13px; font-family: var(--font);
+    height: 34px; padding: 0 30px 0 12px; border-radius: 17px;
+    border: 1.5px solid var(--border); background: var(--card-bg);
+    color: var(--text); font-size: 13px; font-family: var(--font); font-weight: 500;
     cursor: pointer; appearance: none;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23868b8e'/%3E%3C/svg%3E");
-    background-repeat: no-repeat; background-position: right 10px center;
+    background-repeat: no-repeat; background-position: right 12px center;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+    outline: none; min-width: 80px;
 }
+.col-select:hover { border-color: var(--accent); }
+.col-select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(0,122,255,0.08); }
 .col-manage-btn {
-    height: 32px; padding: 0 12px; border-radius: 8px;
-    border: 1px solid var(--border); background: transparent;
-    color: var(--text-secondary); font-size: 12px; font-family: var(--font);
-    cursor: pointer; transition: var(--transition);
+    height: 34px; padding: 0 14px; border-radius: 17px;
+    border: 1.5px solid var(--border); background: transparent;
+    color: var(--text-secondary); font-size: 12px; font-family: var(--font); font-weight: 500;
+    cursor: pointer; transition: border-color 0.2s ease, background 0.2s ease, color 0.2s ease, transform 0.15s ease;
+    white-space: nowrap;
 }
-.col-manage-btn:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+.col-manage-btn:hover { background: var(--accent); color: #fff; border-color: var(--accent); transform: translateY(-1px); }
+.col-manage-btn:active { transform: scale(0.96); transition: transform 0.08s ease; }
 
 /* 管理收藏夹面板 */
 .col-mgmt-overlay {
@@ -679,6 +726,16 @@ body.multi-select-active .card-check { display: block; }
 [data-theme="dark"] .col-picker { background: #1c1c1e; border-color: #3a3a3c; }
 [data-theme="dark"] .col-picker-item:hover { background: #2c2c2e; }
 [data-theme="dark"] .col-select { background: #2c2c2e; color: var(--text); border-color: #3a3a3c; }
+[data-theme="dark"] .col-select:focus { box-shadow: 0 0 0 3px rgba(10,132,255,0.15); }
+[data-theme="dark"] .hide-faved-toggle,
+[data-theme="dark"] .multi-select-toggle { background: #3a3a3c; border-color: #3a3a3c; }
+[data-theme="dark"] .hide-faved-toggle:has(input:checked),
+[data-theme="dark"] .multi-select-toggle:has(input:checked) { background: rgba(10,132,255,0.12); border-color: var(--accent); color: var(--accent); }
+[data-theme="dark"] .hide-faved-toggle input,
+[data-theme="dark"] .multi-select-toggle input { background: #636366; }
+[data-theme="dark"] .hide-faved-toggle input:checked,
+[data-theme="dark"] .multi-select-toggle input:checked { background: var(--accent); }
+[data-theme="dark"] .fav-export-btn { background: #2c2c2e; border-color: #3a3a3c; color: var(--text); }
 [data-theme="dark"] .navbar-brand .icon { background: linear-gradient(135deg, #0a84ff, #5e5ce6); }
 
 @media (max-width: 640px) {
