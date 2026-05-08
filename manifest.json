@@ -1,0 +1,12 @@
+{
+  "name": "壁纸收集器",
+  "short_name": "壁纸收集",
+  "description": "多图源高清壁纸搜索与收藏工具",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f5f5f7",
+  "theme_color": "#007aff",
+  "icons": [
+    { "src": "icon.svg", "sizes": "512x512", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}
