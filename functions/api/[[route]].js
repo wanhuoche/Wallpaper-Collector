@@ -278,22 +278,25 @@ async function handleSyncFavorites(request, env) {
     }
   });
 
-  // 写入合并结果
-  await env.DB.prepare('DELETE FROM favorites WHERE user_id = ?').bind(userId).run();
-
+  // 写入合并结果 — 逐对 delete+insert 同批次内原子执行，避免崩溃丢数据
   const allFavs = Object.values(dbMap);
   if (allFavs.length > 0) {
-    const insert = env.DB.prepare(
-      'INSERT INTO favorites (user_id, photo_id, photo_data, created_at) VALUES (?, ?, ?, ?)'
-    );
-    const batch = allFavs.map(fav => {
+    const stmts = [];
+    allFavs.forEach(fav => {
       const photoId = fav.full || fav.medium || fav.thumb;
       const ts = Math.max(fav.savedAt || 0, fav.deletedAt || 0);
-      return insert.bind(userId, photoId, JSON.stringify(fav), ts ? new Date(ts).toISOString() : now);
+      stmts.push(
+        env.DB.prepare('DELETE FROM favorites WHERE user_id = ? AND photo_id = ?').bind(userId, photoId)
+      );
+      stmts.push(
+        env.DB.prepare('INSERT INTO favorites (user_id, photo_id, photo_data, created_at) VALUES (?, ?, ?, ?)')
+          .bind(userId, photoId, JSON.stringify(fav), ts ? new Date(ts).toISOString() : now)
+      );
     });
 
-    for (let i = 0; i < batch.length; i += 50) {
-      await env.DB.batch(batch.slice(i, i + 50));
+    // 每批 50 条语句（25 对 delete+insert），D1 限制 100 条/批
+    for (let i = 0; i < stmts.length; i += 50) {
+      await env.DB.batch(stmts.slice(i, i + 50));
     }
   }
 

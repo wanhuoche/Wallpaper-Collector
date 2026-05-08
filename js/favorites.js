@@ -1,4 +1,5 @@
 import { setState } from './state.js';
+import { escapeHtml } from './utils.js';
 
 const W = window.WallpaperApp;
 const STORAGE_KEY = 'wp_favorites';
@@ -205,13 +206,11 @@ function load() {
     try {
         var data = localStorage.getItem(STORAGE_KEY);
         var list = data ? JSON.parse(data) : [];
-        console.log('[load] localStorage 读取到 ' + list.length + ' 条收藏');
         list = cleanTombstones(list);
         // 旧数据迁移
         list.forEach(function(f) {
             if (!f.collectionIds || f.collectionIds.length === 0) f.collectionIds = ['__default__'];
         });
-        console.log('[load] 清理墓碑后 ' + list.length + ' 条');
         return list;
     } catch (e) {
         return [];
@@ -220,7 +219,6 @@ function load() {
 
 function save(list) {
     try {
-        console.log('[save] 写入 localStorage ' + list.length + ' 条');
         localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
     } catch (e) {
         W.showToast('收藏存储空间不足，请清理一些收藏', 'error');
@@ -255,14 +253,12 @@ function cloudFetch(path, options) {
 // 单向推送本地收藏 + 收藏夹列表到云端
 function pushFavorites() {
     var token = W.auth && W.auth.getToken ? W.auth.getToken() : null;
-    console.log('[pushFavorites] user=' + !!W.state.user + ', token=' + !!token + ', favorites=' + W.state.favorites.length);
     if (!token) return Promise.resolve();
 
     return cloudFetch('/api/auth/favorites/sync', {
         method: 'POST',
         body: { favorites: W.state.favorites, collections: W.state.collections }
     }).then(function(data) {
-        console.log('[pushFavorites] 返回 favorites=' + (data.favorites ? data.favorites.length : 'null'));
         if (data.collections && data.collections.length > 0) {
             mergeCollections(data.collections);
         }
@@ -274,16 +270,13 @@ function pushFavorites() {
 // 双向同步：推送本地，用服务端合并结果覆盖本地
 function syncWithCloud() {
     var token = W.auth && W.auth.getToken ? W.auth.getToken() : null;
-    if (!token) { console.log('[syncWithCloud] 无 token，跳过'); return Promise.resolve(); }
+    if (!token) { return Promise.resolve(); }
 
-    console.log('[syncWithCloud] 发送 favorites=' + W.state.favorites.length + ', collections=' + W.state.collections.length);
     return cloudFetch('/api/auth/favorites/sync', {
         method: 'POST',
         body: { favorites: W.state.favorites, collections: W.state.collections }
     }).then(function(data) {
-        console.log('[syncWithCloud] 返回 favorites=' + (data.favorites ? data.favorites.length : 'null') + ', collections=' + (data.collections ? data.collections.length : 'null'));
         if (data.favorites && data.favorites.length > 0) {
-            console.log('[syncWithCloud] 覆盖本地为 ' + data.favorites.length + ' 条');
             setState('favorites', data.favorites);
             save(data.favorites);
             updateCount();
@@ -300,9 +293,8 @@ function syncWithCloud() {
 
 // 以云端为基准合并
 function mergeLocal(cloudFavs) {
-    if (!cloudFavs || cloudFavs.length === 0) { console.log('[mergeLocal] 云端无收藏，跳过'); return false; }
+    if (!cloudFavs || cloudFavs.length === 0) { return false; }
 
-    console.log('[mergeLocal] 云端 ' + cloudFavs.length + ' 条, 本地 ' + W.state.favorites.length + ' 条');
     var cloudMap = {};
     var maxCloudSavedAt = 0;
     cloudFavs.forEach(function(f) {
@@ -340,7 +332,6 @@ function mergeLocal(cloudFavs) {
     var merged = Object.keys(localMap).map(function(k) { return localMap[k]; });
     merged.sort(function(a, b) { return (b.savedAt || 0) - (a.savedAt || 0); });
 
-    console.log('[mergeLocal] 合并结果 ' + merged.length + ' 条 (added ' + addedCount + ')');
     setState('favorites', merged);
     save(merged);
     updateCount();
@@ -350,22 +341,19 @@ function mergeLocal(cloudFavs) {
 // init 时先从云端拉取收藏列表 + 收藏夹列表
 function pullFromCloud() {
     var token = W.auth && W.auth.getToken ? W.auth.getToken() : null;
-    if (!token) { console.log('[pullFromCloud] 无 token，跳过'); return Promise.resolve(); }
+    if (!token) { return Promise.resolve(); }
 
     return cloudFetch('/api/auth/favorites', { method: 'GET' })
         .then(function(data) {
-            console.log('[pullFromCloud] GET 返回: favorites=' + (data.favorites ? data.favorites.length : 'null') + ', collections=' + (data.collections ? data.collections.length : 'null'));
             var hasFavs = data.favorites && data.favorites.length > 0;
             var hasCols = data.collections && data.collections.length > 0;
             if (hasFavs) mergeLocal(data.favorites);
             if (hasCols) mergeCollections(data.collections);
             if (hasFavs || hasCols) {
-                console.log('[pullFromCloud] POST sync, 发送 favorites=' + W.state.favorites.length + ', collections=' + W.state.collections.length);
                 return cloudFetch('/api/auth/favorites/sync', {
                     method: 'POST',
                     body: { favorites: W.state.favorites, collections: W.state.collections }
                 }).then(function(syncData) {
-                    console.log('[pullFromCloud] POST 返回: favorites=' + (syncData.favorites ? syncData.favorites.length : 'null') + ', collections=' + (syncData.collections ? syncData.collections.length : 'null'));
                     if (syncData.collections && syncData.collections.length > 0) {
                         mergeCollections(syncData.collections);
                     }
@@ -788,12 +776,6 @@ function updateSearchCardFavButtons() {
         btn.textContent = fav ? '♥' : '♡';
         btn.classList.toggle('active', fav);
     });
-}
-
-function escapeHtml(str) {
-    var div = document.createElement('div');
-    div.textContent = str || '';
-    return div.innerHTML;
 }
 
 // ---- Init ----

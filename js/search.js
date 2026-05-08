@@ -1,5 +1,6 @@
 import { setState } from './state.js';
 import { idbGet, idbSet } from './storage.js';
+import { escapeHtml } from './utils.js';
 
 const W = window.WallpaperApp;
 var toastTimer = null;
@@ -191,12 +192,6 @@ document.getElementById('btnZoomReset').addEventListener('click', function(e) {
 
 // ---- 工具函数 ----
 
-function escapeHtml(str) {
-    var div = document.createElement('div');
-    div.textContent = str || '';
-    return div.innerHTML;
-}
-
 function hasChineseChar(text) {
     return /[一-鿿]/.test(text);
 }
@@ -338,8 +333,7 @@ async function cacheSet(key, value) {
 
 async function translateToEnglish(text) {
     var cached = await cacheGet(text);
-    if (cached) { console.log('[翻译缓存] 命中 — "' + text + '" → "' + cached + '"'); return cached; }
-    console.log('[翻译缓存] 未命中 — "' + text + '" 需调 API');
+    if (cached) { return cached; }
 
     try {
         var resp = await fetch(
