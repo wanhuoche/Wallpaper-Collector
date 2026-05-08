@@ -589,7 +589,13 @@ async function downloadPhoto(photo) {
     for (var i = 0; i < urls.length; i++) {
         try {
             var blob = await tryBlobDownload(urls[i]);
-            var ext = blob.type.split('/')[1] || 'jpg';
+            var ext = 'jpg';
+            if (blob.type && blob.type.startsWith('image/')) {
+                ext = blob.type.split('/')[1] || 'jpg';
+            } else {
+                var urlExt = url.split('?')[0].split('.').pop().toLowerCase();
+                if (/^(jpg|jpeg|png|webp|gif|bmp|svg)$/.test(urlExt)) ext = urlExt;
+            }
             var name = (photo.alt || '').replace(/[\/\\:*?"<>|]/g, '').replace(/\s+/g, '_').slice(0, 60).trim();
             if (name) name = name + '_';
             var filename = name + photo.width + 'x' + photo.height + '_' + photo.id + '.' + ext;
