@@ -127,11 +127,20 @@ function json(data, status = 200) {
 // ── Routes ──
 
 async function handleRegister(request, env) {
+  const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
+
+  const rateCheck = await checkAuthRateLimit(env, ip, 'register');
+  if (!rateCheck.allowed) {
+    return json({ error: '注册尝试过于频繁，请 ' + rateCheck.retryAfter + ' 后再试' }, 429);
+  }
+
   const body = await request.json();
   const { username, email, password } = body;
 
   const errors = validateRegister(body);
   if (errors.length > 0) return json({ error: errors[0] }, 400);
+
+  await incrementAuthUsage(env, ip, 'register');
 
   const existing = await env.DB.prepare(
     'SELECT id FROM users WHERE username = ? OR email = ?'
@@ -149,10 +158,19 @@ async function handleRegister(request, env) {
 }
 
 async function handleLogin(request, env) {
+  const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
+
+  const rateCheck = await checkAuthRateLimit(env, ip, 'login');
+  if (!rateCheck.allowed) {
+    return json({ error: '登录尝试过于频繁，请 ' + rateCheck.retryAfter + ' 后再试' }, 429);
+  }
+
   const body = await request.json();
   const { email, password } = body;
 
   if (!email || !password) return json({ error: '请输入邮箱和密码' }, 400);
+
+  await incrementAuthUsage(env, ip, 'login');
 
   const user = await env.DB.prepare(
     'SELECT id, username, email, password FROM users WHERE email = ?'
@@ -447,6 +465,39 @@ async function incrementUsage(env, ip) {
   await env.DB.prepare(
     'INSERT INTO guest_usage (ip, date, count) VALUES (?, ?, 1) ON CONFLICT (ip, date) DO UPDATE SET count = count + 1'
   ).bind(ip, date).run();
+}
+
+// ── Auth 限流 ──
+
+const AUTH_LOGIN_LIMIT = 10;     // 每 IP 每小时
+const AUTH_REGISTER_LIMIT = 5;   // 每 IP 每天
+
+function hourStr() {
+  return new Date().toISOString().slice(0, 13).replace('T', '-'); // YYYY-MM-DD-HH
+}
+
+async function checkAuthRateLimit(env, ip, action) {
+  const date = action === 'login' ? hourStr() : todayStr();
+  const key = 'auth_' + action + ':' + ip;
+  const row = await env.DB.prepare(
+    'SELECT count FROM guest_usage WHERE ip = ? AND date = ?'
+  ).bind(key, date).first();
+
+  const used = row ? row.count : 0;
+  const limit = action === 'login' ? AUTH_LOGIN_LIMIT : AUTH_REGISTER_LIMIT;
+  if (used >= limit) {
+    const retryAfter = action === 'login' ? '1 小时' : '1 天';
+    return { allowed: false, used, limit, retryAfter };
+  }
+  return { allowed: true, used, limit };
+}
+
+async function incrementAuthUsage(env, ip, action) {
+  const date = action === 'login' ? hourStr() : todayStr();
+  const key = 'auth_' + action + ':' + ip;
+  await env.DB.prepare(
+    'INSERT INTO guest_usage (ip, date, count) VALUES (?, ?, 1) ON CONFLICT (ip, date) DO UPDATE SET count = count + 1'
+  ).bind(key, date).run();
 }
 
 // ── 图源代理 ──
