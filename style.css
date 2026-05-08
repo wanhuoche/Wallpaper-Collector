@@ -21,7 +21,10 @@
 
 body {
     font-family: var(--font);
-    background: radial-gradient(ellipse 80% 60% at 50% 0%, #f0edff 0%, #f5f5f7 50%, #f2f4f8 100%);
+    background:
+        radial-gradient(circle, rgba(0,0,0,0.04) 1px, transparent 1px),
+        radial-gradient(ellipse 80% 60% at 50% 0%, #f0edff 0%, #f5f5f7 50%, #f2f4f8 100%);
+    background-size: 22px 22px, 100% 100%;
     color: var(--text);
     min-height: 100vh;
     -webkit-font-smoothing: antialiased;
@@ -666,13 +669,18 @@ body.multi-select-active .card-check { display: block; }
     --accent-hover: #409cff;
     --accent-gradient: linear-gradient(135deg, #7d7aff 0%, #0a84ff 100%);
     --border: #2c2c30;
-    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 4px 16px rgba(0,0,0,0.4);
-    --shadow-hover: 0 2px 4px rgba(0,0,0,0.3), 0 12px 40px rgba(0,0,0,0.5);
-    --shadow-card: 0 1px 3px rgba(0,0,0,0.3), 0 6px 20px rgba(0,0,0,0.45);
-    --shadow-card-hover: 0 2px 6px rgba(0,0,0,0.3), 0 16px 48px rgba(0,0,0,0.55);
+    --shadow: 0 1px 2px rgba(0,0,0,0.45), 0 4px 16px rgba(0,0,0,0.55), 0 0 1px rgba(100,120,255,0.03);
+    --shadow-hover: 0 2px 4px rgba(0,0,0,0.45), 0 16px 48px rgba(0,0,0,0.6), 0 0 2px rgba(100,120,255,0.06);
+    --shadow-card: 0 1px 3px rgba(0,0,0,0.45), 0 8px 24px rgba(0,0,0,0.55), 0 0 1px rgba(100,120,255,0.03);
+    --shadow-card-hover: 0 2px 6px rgba(0,0,0,0.45), 0 20px 56px rgba(0,0,0,0.65), 0 0 3px rgba(100,120,255,0.10);
 }
-[data-theme="dark"] body { background: radial-gradient(ellipse 80% 60% at 50% 0%, #1c1a24 0%, #161618 50%, #141418 100%); }
-[data-theme="dark"] .navbar { background: rgba(22,22,24,0.78); border-bottom-color: rgba(255,255,255,0.06); }
+[data-theme="dark"] body {
+    background:
+        radial-gradient(circle, rgba(255,255,255,0.035) 1px, transparent 1px),
+        radial-gradient(ellipse 80% 60% at 50% 0%, #1c1a24 0%, #161618 50%, #141418 100%);
+    background-size: 22px 22px, 100% 100%;
+}
+[data-theme="dark"] .navbar { background: rgba(18,18,20,0.82); border-bottom-color: rgba(255,255,255,0.04); backdrop-filter: saturate(200%) blur(28px); -webkit-backdrop-filter: saturate(200%) blur(28px); }
 [data-theme="dark"] .btn-theme,
 [data-theme="dark"] .btn-settings { background: var(--card-bg); color: var(--text-secondary); }
 [data-theme="dark"] .search-input { background: #3a3a3c; color: var(--text); }
@@ -695,7 +703,9 @@ body.multi-select-active .card-check { display: block; }
 [data-theme="dark"] .category-tag:hover { border-color: var(--accent); color: var(--accent); background: rgba(10,132,255,0.10); transform: translateY(-1px); }
 [data-theme="dark"] .btn-load-more { background: #3a3a3c; }
 [data-theme="dark"] .btn-load-more:hover { background: var(--accent); color: #fff; }
-[data-theme="dark"] .skeleton { background: linear-gradient(90deg, #3a3a3c 25%, #48484a 50%, #3a3a3c 75%); background-size: 200% 100%; }
+[data-theme="dark"] .skeleton { background: linear-gradient(90deg, #2a2a2e 25%, #38383c 50%, #2a2a2e 75%); background-size: 200% 100%; }
+[data-theme="dark"] .modal-overlay { background: rgba(0,0,0,0.72); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+[data-theme="dark"] .modal-content { box-shadow: 0 20px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.06); }
 [data-theme="dark"] .toast { background: linear-gradient(135deg, #f5f5f7, #e8e8ed); color: #1d1d1f; }
 [data-theme="dark"] .toast.success { background: linear-gradient(135deg, #34c759, #30b350); color: #fff; }
 [data-theme="dark"] .toast.error { background: linear-gradient(135deg, #ff453a, #e0352b); color: #fff; }
@@ -703,9 +713,10 @@ body.multi-select-active .card-check { display: block; }
 [data-theme="dark"] .storage-status { background: #3a3a3c; }
 [data-theme="dark"] .btn-storage { background: #3a3a3c; }
 [data-theme="dark"] .btn-storage:hover { background: rgba(10,132,255,0.12); }
-[data-theme="dark"] .results-tabs { background: #3a3a3c; }
-[data-theme="dark"] .results-tab.active { background: #48484a; color: var(--text); }
-[data-theme="dark"] .multi-select-bar { background: #1c1c1e; border-color: #3a3a3c; }
+[data-theme="dark"] .results-tabs { background: #2a2a2e; box-shadow: inset 0 1px 2px rgba(0,0,0,0.3); }
+[data-theme="dark"] .results-tab.active { background: #3a3a3e; color: var(--text); box-shadow: 0 1px 4px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.04); }
+[data-theme="dark"] .multi-select-bar { background: #1c1c1e; border-color: #3a3a3c; box-shadow: inset 0 1px 0 rgba(255,255,255,0.02); }
+[data-theme="dark"] .search-card { box-shadow: var(--shadow-card), inset 0 1px 0 rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.03); }
 [data-theme="dark"] .ms-btn { border-color: #3a3a3c; color: var(--text); }
 [data-theme="dark"] .ms-btn:hover { background: var(--accent); color: #fff; }
 [data-theme="dark"] .setting-group input,
@@ -719,6 +730,16 @@ body.multi-select-active .card-check { display: block; }
 [data-theme="dark"] .card-download { background: rgba(255,255,255,0.85); }
 [data-theme="dark"] .card-fav:hover,
 [data-theme="dark"] .card-download:hover { background: #fff; }
+
+/* 暗色模式卡片深度增强 */
+[data-theme="dark"] .image-card {
+    box-shadow: var(--shadow-card), inset 0 1px 0 rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.04);
+}
+[data-theme="dark"] .image-card:hover {
+    box-shadow: var(--shadow-card-hover), 0 0 0 2px rgba(10,132,255,0.45), 0 0 40px rgba(10,132,255,0.20), 0 0 80px rgba(125,122,255,0.08);
+}
+[data-theme="dark"] .image-card::after { background: linear-gradient(135deg, rgba(10,132,255,0.08) 0%, transparent 50%, rgba(125,122,255,0.06) 100%); }
 [data-theme="dark"] .modal-close { background: rgba(255,255,255,0.85); color: #333; }
 [data-theme="dark"] .col-mgmt-panel { background: #1c1c1e; }
 [data-theme="dark"] .col-mgmt-item { background: #2c2c2e; }
@@ -737,6 +758,19 @@ body.multi-select-active .card-check { display: block; }
 [data-theme="dark"] .multi-select-toggle input:checked { background: var(--accent); }
 [data-theme="dark"] .fav-export-btn { background: #2c2c2e; border-color: #3a3a3c; color: var(--text); }
 [data-theme="dark"] .navbar-brand .icon { background: linear-gradient(135deg, #0a84ff, #5e5ce6); }
+[data-theme="dark"] .btn-back-top { background: #2c2c2e; border-color: #3a3a3c; color: #8e8e93; }
+[data-theme="dark"] .btn-back-top:hover { color: var(--accent); border-color: var(--accent); background: #333; }
+[data-theme="dark"] .search-history { background: #1c1c1e; border-color: #3a3a3c; box-shadow: 0 8px 32px rgba(0,0,0,0.5); }
+[data-theme="dark"] .search-history-item { border-bottom-color: #2c2c30; }
+[data-theme="dark"] .search-history-clear { border-top-color: #2c2c30; }
+
+/* 全局滚动条 */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.25); }
+[data-theme="dark"] ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 4px; }
+[data-theme="dark"] ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.20); }
 
 @media (max-width: 640px) {
     .search-card { padding: 16px; }
@@ -1108,9 +1142,10 @@ body.multi-select-active .card-check { display: block; }
 }
 [data-theme="dark"] .shortcuts-toggle:hover { color: #f5f5f7; box-shadow: 0 2px 12px rgba(0,0,0,0.4); }
 [data-theme="dark"] .shortcuts-panel {
-    background: rgba(44,44,46,0.95);
-    border-color: rgba(255,255,255,0.08);
-    box-shadow: 0 4px 24px rgba(0,0,0,0.4);
+    background: rgba(30,30,34,0.96);
+    backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+    border-color: rgba(255,255,255,0.06);
+    box-shadow: 0 4px 32px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.04);
 }
 [data-theme="dark"] .shortcuts-panel h3 { color: #f5f5f7; border-color: rgba(255,255,255,0.08); }
 [data-theme="dark"] .shortcut-row { color: #8e8e93; }
@@ -1120,6 +1155,8 @@ body.multi-select-active .card-check { display: block; }
     background: rgba(255,255,255,0.06);
     color: #bbb;
 }
+[data-theme="dark"] .settings-backdrop.open { background: rgba(0,0,0,0.55); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
+[data-theme="dark"] .settings-panel { background: #1c1c1e; box-shadow: -4px 0 40px rgba(0,0,0,0.55); }
 
 /* ── 触屏设备适配 ── */
 @media (hover: none) and (pointer: coarse) {
