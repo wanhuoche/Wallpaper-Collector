@@ -385,7 +385,7 @@ function renderSkeletons() {
     W.dom.resultsGrid.innerHTML = html;
 }
 
-function renderResults() {
+function renderResults(append) {
     var photos = W.state.photos;
     if (W.state.hideFaved) {
         photos = photos.filter(function(p) { return !W.favorites.isFavorite(p.id, W.state.source); });
@@ -394,13 +394,19 @@ function renderResults() {
     document.getElementById('multiSelectLabel').style.display = W.state.activeTab === 'search' && W.state.photos.length > 0 ? '' : 'none';
 
     if (photos.length === 0) {
+        W.state._renderedCount = 0;
         var msg = W.state.hideFaved ? '当前筛选下所有图片都已收藏，取消"隐藏已收藏"查看更多' : '没有找到匹配的壁纸，试试其他关键词或放宽筛选';
         W.dom.resultsGrid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:#86868b;">😔 ' + msg + '</div>';
         return;
     }
     W.state._displayPhotos = photos;
+    var startIdx = append ? (W.state._renderedCount || 0) : 0;
+    if (startIdx >= photos.length) return;
+    if (!append) { W.dom.resultsGrid.innerHTML = ''; W.state._renderedCount = 0; }
+
     var html = '';
-    photos.forEach(function(photo, idx) {
+    for (var idx = startIdx; idx < photos.length; idx++) {
+        var photo = photos[idx];
         var res = photo.width + '\xD7' + photo.height;
         var ratioBadge = photo.ratioMatch && photo.ratioMatch !== 'all'
             ? '<span class="card-badge ' + photo.ratioMatch + '">' + (photo.ratioMatch === 'perfect' ? '精确' : photo.ratioMatch === 'good' ? '接近' : '宽松') + '</span>'
@@ -414,7 +420,8 @@ function renderResults() {
         var isFav = W.favorites.isFavorite(photo.id, W.state.source);
         var favClass = isFav ? ' active' : '';
         var favIcon = isFav ? '♥' : '♡';
-        var delay = Math.min(idx, 24) * 0.04;
+        var batchIdx = idx - startIdx;
+        var delay = Math.min(batchIdx, 24) * 0.04;
         html += '<div class="image-card" data-index="' + idx + '" title="' + res + '" style="animation-delay:' + delay.toFixed(2) + 's">'
             + '<input type="checkbox" class="card-check" data-index="' + idx + '">'
             + '<img src="' + photo.thumb + '" alt="' + escapeHtml(photo.alt) + '" loading="lazy"'
@@ -425,21 +432,26 @@ function renderResults() {
             + '<button class="card-fav' + favClass + '" data-index="' + idx + '">' + favIcon + '</button>'
             + '<button class="card-download" data-index="' + idx + '">⬇</button>'
             + '</div></div></div>';
-    });
-    W.dom.resultsGrid.innerHTML = html;
-    attachCardListeners();
+    }
+    W.dom.resultsGrid.insertAdjacentHTML('beforeend', html);
+    var prevRendered = W.state._renderedCount || 0;
+    W.state._renderedCount = photos.length;
+    attachCardListeners(prevRendered);
 }
 W._renderResults = renderResults;
 
-function attachCardListeners() {
+function attachCardListeners(fromIdx) {
+    fromIdx = fromIdx || 0;
     var list = W.state._displayPhotos || W.state.photos;
     W.dom.resultsGrid.querySelectorAll('.image-card').forEach(function(card) {
+        if (parseInt(card.dataset.index) < fromIdx) return;
         card.addEventListener('click', function(e) {
             if (e.target.closest('.card-download') || e.target.closest('.card-fav') || e.target.closest('.card-check')) return;
             openPreview(parseInt(card.dataset.index));
         });
     });
     W.dom.resultsGrid.querySelectorAll('.card-check').forEach(function(cb) {
+        if (parseInt(cb.dataset.index) < fromIdx) return;
         cb.addEventListener('change', function(e) {
             e.stopPropagation();
             var idx = parseInt(cb.dataset.index);
@@ -454,12 +466,14 @@ function attachCardListeners() {
         });
     });
     W.dom.resultsGrid.querySelectorAll('.card-download').forEach(function(btn) {
+        if (parseInt(btn.dataset.index) < fromIdx) return;
         btn.addEventListener('click', function(e) {
             e.stopPropagation();
             downloadPhoto(list[parseInt(btn.dataset.index)]);
         });
     });
     W.dom.resultsGrid.querySelectorAll('.card-fav').forEach(function(btn) {
+        if (parseInt(btn.dataset.index) < fromIdx) return;
         btn.addEventListener('click', function(e) {
             e.stopPropagation();
             if (!W.state.user) { location.href = 'login.html'; return; }
@@ -468,23 +482,20 @@ function attachCardListeners() {
             if (!photo) return;
             var isFav = W.favorites.isFavorite(photo.id, W.state.source);
             if (isFav) {
-                // 已收藏 → 直接取消
                 W.favorites.toggle(photo, W.state.source);
                 W.favorites.updateCount();
                 W.showToast('已取消收藏', 'success');
                 btn.textContent = '♡';
                 btn.classList.remove('active');
             } else {
-                // 未收藏 → 弹出选择面板
                 W.favorites.showCollectionPicker(photo, W.state.source).then(function(collectionIds) {
-                    if (!collectionIds) return; // 取消
+                    if (!collectionIds) return;
                     W.favorites.addFavorite(photo, W.state.source, collectionIds);
                     W.favorites.updateCount();
                     W.showToast('已添加到收藏 ♥', 'success');
                     if (W.state.activeTab === 'favorites' && W.state.activeCollection !== '__all__') {
-                        // 如果当前筛选的收藏夹不在选择中，刷新后可能看不到
                         if (collectionIds.indexOf(W.state.activeCollection) < 0) {
-                            W.favorites.render(); // 可能在当前筛选下不显示
+                            W.favorites.render();
                         }
                     }
                     if (W.state.hideFaved) {
@@ -681,6 +692,7 @@ async function doSearch() {
                     ctaHtml += '<button onclick="document.getElementById(\'btnSettings\').click()" style="display:inline-block;padding:10px 24px;background:#fff;color:var(--accent);border:1.5px solid var(--accent);border-radius:20px;cursor:pointer;font-weight:600;font-family:inherit;font-size:13px;">填写自己的 API Key（无限制）</button>'
                         + '</div>';
                     W.dom.resultsGrid.innerHTML = ctaHtml;
+                    W.state._renderedCount = 0;
                     W.dom.resultsCount.textContent = '今日次数已用完 · 明天自动重置';
                     W.dom.loadMoreWrap.style.display = 'none';
                     setState('isLoading', false);
@@ -784,7 +796,7 @@ async function doSearch() {
         }
 
         W.state.photos = W.state.allPhotos;
-        renderResults();
+        renderResults(W.state.currentPage > 1);
 
         var hasMore = rawCount > 0 && W.state.allPhotos.length < parsed.total;
         W.dom.loadMoreWrap.style.display = hasMore ? '' : 'none';
@@ -822,6 +834,7 @@ async function doSearch() {
         console.error(err);
         if (W.state.currentPage === 1) {
             W.dom.resultsGrid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:#ff3b30;">❌ ' + escapeHtml(err.message) + '</div>';
+            W.state._renderedCount = 0;
         }
         W.showToast('搜索失败: ' + err.message, 'error');
     }

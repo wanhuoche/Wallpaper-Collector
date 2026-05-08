@@ -321,7 +321,7 @@ body.multi-select-active .card-check { display: block; }
     content-visibility: auto; contain-intrinsic-size: auto 200px;
     animation: cardIn 0.45s ease backwards;
 }
-.image-card:hover { box-shadow: var(--shadow-card-hover), 0 0 0 1px rgba(0,122,255,0.18); transform: translateY(-4px); }
+.image-card:hover { box-shadow: var(--shadow-card-hover), 0 0 0 2px rgba(0,122,255,0.40), 0 0 24px rgba(0,122,255,0.15); transform: translateY(-4px); }
 .image-card:active { transform: scale(0.97); transition: transform 0.1s ease; }
 .image-card img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.5s cubic-bezier(0.25, 0.1, 0.25, 1); }
 .image-card:hover img { transform: scale(1.06); }

@@ -1,4 +1,4 @@
-var CACHE = 'wallpaper-v1';
+var CACHE = 'wallpaper-v2';
 var ASSETS = [
   '/',
   '/index.html',
@@ -38,16 +38,23 @@ self.addEventListener('fetch', function(e) {
   if (e.request.method !== 'GET') return;
   e.respondWith(
     caches.match(e.request).then(function(cached) {
-      // 静态资源走缓存优先，API/外部图源走网络优先
       var url = new URL(e.request.url);
       if (url.pathname.startsWith('/api/') || url.hostname !== self.location.hostname) {
+        // API/外部图源：网络优先，失败兜底缓存
         return fetch(e.request).then(function(resp) {
           return resp;
         }).catch(function() {
           return cached || new Response('Offline', { status: 503 });
         });
       }
-      return cached || fetch(e.request);
+      // 同源静态资源：网络优先（确保更新即时生效），失败兜底缓存
+      return fetch(e.request).then(function(resp) {
+        var cloned = resp.clone();
+        caches.open(CACHE).then(function(cache) { cache.put(e.request, cloned); });
+        return resp;
+      }).catch(function() {
+        return cached || new Response('Offline', { status: 503 });
+      });
     })
   );
 });
