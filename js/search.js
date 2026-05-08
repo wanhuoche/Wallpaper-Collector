@@ -414,7 +414,8 @@ function renderResults() {
         var isFav = W.favorites.isFavorite(photo.id, W.state.source);
         var favClass = isFav ? ' active' : '';
         var favIcon = isFav ? '♥' : '♡';
-        html += '<div class="image-card" data-index="' + idx + '" title="' + res + '">'
+        var delay = Math.min(idx, 24) * 0.04;
+        html += '<div class="image-card" data-index="' + idx + '" title="' + res + '" style="animation-delay:' + delay.toFixed(2) + 's">'
             + '<input type="checkbox" class="card-check" data-index="' + idx + '">'
             + '<img src="' + photo.thumb + '" alt="' + escapeHtml(photo.alt) + '" loading="lazy"'
             + ' onerror="this.parentElement.innerHTML=\'<span style=font-size:40px;color:#d1d1d6;>🖼</span>\'" />'

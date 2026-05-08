@@ -315,21 +315,24 @@ body.multi-select-active .card-check { display: block; }
 /* 图片卡片 */
 .image-card {
     background: var(--card-bg); border-radius: var(--radius); overflow: hidden;
-    box-shadow: var(--shadow-card); cursor: pointer; transition: var(--transition);
+    box-shadow: var(--shadow-card); cursor: pointer; transition: transform 0.25s ease, box-shadow 0.25s ease;
     position: relative; aspect-ratio: 16 / 10;
     display: flex; align-items: center; justify-content: center;
     content-visibility: auto; contain-intrinsic-size: auto 200px;
+    animation: cardIn 0.45s ease backwards;
 }
-.image-card:hover { box-shadow: var(--shadow-card-hover); transform: translateY(-4px); }
-.image-card img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.4s ease; }
-.image-card:hover img { transform: scale(1.04); }
+.image-card:hover { box-shadow: var(--shadow-card-hover), 0 0 0 1px rgba(0,122,255,0.18); transform: translateY(-4px); }
+.image-card:active { transform: scale(0.97); transition: transform 0.1s ease; }
+.image-card img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.5s cubic-bezier(0.25, 0.1, 0.25, 1); }
+.image-card:hover img { transform: scale(1.06); }
 .card-overlay {
     position: absolute; bottom: 0; left: 0; right: 0;
     background: linear-gradient(transparent, rgba(0,0,0,0.55));
-    padding: 28px 14px 10px; opacity: 0; transition: var(--transition);
+    padding: 28px 14px 10px; opacity: 0; transform: translateY(6px);
+    transition: opacity 0.25s ease, transform 0.25s ease;
     display: flex; align-items: flex-end; justify-content: space-between;
 }
-.image-card:hover .card-overlay { opacity: 1; }
+.image-card:hover .card-overlay { opacity: 1; transform: translateY(0); }
 .card-res { color: #fff; font-size: 11px; font-weight: 500; }
 .card-actions { display: flex; gap: 6px; }
 .card-fav {
@@ -385,6 +388,7 @@ body.multi-select-active .card-check { display: block; }
     padding: 24px; animation: fadeIn 0.2s ease;
 }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes cardIn { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: translateY(0); } }
 .modal-content {
     background: var(--card-bg); border-radius: var(--radius);
     max-width: 90vw; max-height: 96vh; overflow: hidden;
@@ -994,10 +998,10 @@ body.multi-select-active .card-check { display: block; }
 /* ── 触屏设备适配 ── */
 @media (hover: none) and (pointer: coarse) {
     /* 禁用卡片 hover 效果，防止点击时闪现 overlay */
-    .image-card:hover { transform: none; box-shadow: var(--shadow); }
+    .image-card:hover { transform: none; box-shadow: var(--shadow-card); }
     .image-card:hover img { transform: none; }
     .image-card:hover .card-overlay,
-    .image-card:hover .card-badge { opacity: 0; }
+    .image-card:hover .card-badge { opacity: 0; transform: translateY(6px); }
 
     /* 隐藏卡片右下角操作按钮 — 预览弹窗内已有收藏和下载 */
     .card-actions { display: none; }

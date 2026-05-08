@@ -523,7 +523,8 @@ function render() {
         } else if (photo.purity === 'sketchy') {
             purityBadge = '<span class="card-badge sketchy">Sketchy</span>';
         }
-        html += '<div class="image-card" data-fav-index="' + idx + '" title="' + res + '">'
+        var delay = Math.min(idx, 24) * 0.04;
+        html += '<div class="image-card" data-fav-index="' + idx + '" title="' + res + '" style="animation-delay:' + delay.toFixed(2) + 's">'
             + '<input type="checkbox" class="card-check" data-fav-index="' + idx + '">'
             + '<img src="' + photo.thumb + '" alt="' + escapeHtml(photo.alt) + '" loading="lazy"'
             + ' onerror="this.parentElement.innerHTML=\'<span style=font-size:40px;color:#d1d1d6;>🖼</span>\'" />'
