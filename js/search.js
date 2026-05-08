@@ -396,7 +396,7 @@ function renderResults(append) {
     if (photos.length === 0) {
         W.state._renderedCount = 0;
         var msg = W.state.hideFaved ? '当前筛选下所有图片都已收藏，取消"隐藏已收藏"查看更多' : '没有找到匹配的壁纸，试试其他关键词或放宽筛选';
-        W.dom.resultsGrid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:#86868b;">😔 ' + msg + '</div>';
+        W.dom.resultsGrid.innerHTML = '<div class="empty-state"><div class="empty-state-icon emoji">🔍</div><h3 class="empty-state-title">没有找到壁纸</h3><p class="empty-state-desc">' + msg + '</p></div>';
         return;
     }
     W.state._displayPhotos = photos;
@@ -833,7 +833,7 @@ async function doSearch() {
         }
         console.error(err);
         if (W.state.currentPage === 1) {
-            W.dom.resultsGrid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:#ff3b30;">❌ ' + escapeHtml(err.message) + '</div>';
+            W.dom.resultsGrid.innerHTML = '<div class="empty-state error"><div class="empty-state-icon emoji">⚠</div><h3 class="empty-state-title">搜索出错</h3><p class="empty-state-desc">' + escapeHtml(err.message) + '</p></div>';
             W.state._renderedCount = 0;
         }
         W.showToast('搜索失败: ' + err.message, 'error');

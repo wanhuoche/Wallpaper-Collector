@@ -499,11 +499,11 @@ function render() {
 
     if (list.length === 0) {
         W.dom.resultsGrid.innerHTML =
-            '<div style="grid-column:1/-1;text-align:center;padding:60px 20px;">'
-            + '<div style="font-size:48px;margin-bottom:16px;">💝</div>'
-            + '<h3 style="font-weight:600;margin-bottom:8px;">收藏夹是空的</h3>'
-            + '<p style="color:#86868b;font-size:14px;">搜索壁纸并点击 ♡ 按钮收藏喜欢的图片</p>'
-            + '<p style="margin-top:12px;">' + importBarStart + importBarEnd + '</p>'
+            '<div class="empty-state">'
+            + '<div class="empty-state-icon emoji">💝</div>'
+            + '<h3 class="empty-state-title">收藏夹是空的</h3>'
+            + '<p class="empty-state-desc">搜索壁纸并点击 ♡ 按钮收藏喜欢的图片</p>'
+            + '<div class="empty-state-actions">' + importBarStart + importBarEnd + '</div>'
             + '</div>';
         bindImportButtons();
         return;
